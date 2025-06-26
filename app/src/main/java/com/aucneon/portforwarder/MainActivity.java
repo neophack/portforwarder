@@ -40,6 +40,7 @@ import com.espressif.iot.esptouch.IEsptouchListener;
 import com.espressif.iot.esptouch.IEsptouchResult;
 import com.espressif.iot.esptouch.util.ByteUtil;
 import com.espressif.iot.esptouch.util.TouchNetUtil;
+import com.aucneon.portforwarder.DeviceUtils;
 
 public class MainActivity extends AppCompatActivity implements ForwardAdapter.OnConfigActionListener {
     private static final String TAG = "MainActivity";
@@ -108,6 +109,10 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        
+        // 设置屏幕方向：手机竖屏禁止旋转，平板可以旋转
+        DeviceUtils.setScreenOrientation(this);
+        
         setContentView(R.layout.activity_main_new);
 
         initComponents();

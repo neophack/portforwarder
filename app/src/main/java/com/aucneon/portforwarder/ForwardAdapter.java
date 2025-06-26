@@ -121,11 +121,15 @@ public class ForwardAdapter extends RecyclerView.Adapter<ForwardAdapter.ViewHold
                 tvStatus.setTextColor(context.getResources().getColor(android.R.color.holo_green_dark));
                 btnStart.setEnabled(false);
                 btnStop.setEnabled(true);
+                // 将启动按钮背景设为浅绿色
+                btnStart.setBackgroundResource(R.drawable.button_start_running_small);
             } else {
                 tvStatus.setText("已停止");
                 tvStatus.setTextColor(context.getResources().getColor(android.R.color.holo_red_dark));
                 btnStart.setEnabled(config.enabled);
                 btnStop.setEnabled(false);
+                // 恢复启动按钮默认背景
+                btnStart.setBackgroundResource(R.drawable.button_start_small);
             }
             
             // 设置开关状态
