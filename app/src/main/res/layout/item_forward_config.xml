@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:layout_marginBottom="8dp"
+    android:background="@drawable/config_item_background"
+    android:elevation="2dp">
+
+    <!-- 配置名称和状态 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/tv_config_name"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="配置名称"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="@android:color/black" />
+
+        <TextView
+            android:id="@+id/tv_config_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="已停止"
+            android:textSize="12sp"
+            android:padding="4dp"
+            android:background="@drawable/status_badge"
+            android:textColor="@android:color/white" />
+
+    </LinearLayout>
+
+    <!-- 转发规则 -->
+    <TextView
+        android:id="@+id/tv_config_rule"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="TCP 8080 -> 192.168.1.100:80"
+        android:textSize="14sp"
+        android:textColor="@android:color/darker_gray"
+        android:layout_marginTop="4dp"
+        android:fontFamily="monospace" />
+
+    <!-- 开关控制 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="12dp"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="启用:"
+            android:textSize="14sp"
+            android:layout_marginEnd="8dp" />
+
+        <Switch
+            android:id="@+id/sw_enabled"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="24dp" />
+
+<!--        <TextView-->
+<!--            android:layout_width="wrap_content"-->
+<!--            android:layout_height="wrap_content"-->
+<!--            android:text="自动启动:"-->
+<!--            android:textSize="14sp"-->
+<!--            android:layout_marginEnd="8dp" />-->
+
+<!--        <Switch-->
+<!--            android:id="@+id/sw_auto_start"-->
+<!--            android:layout_width="wrap_content"-->
+<!--            android:layout_height="wrap_content" />-->
+
+    </LinearLayout>
+
+    <!-- 操作按钮 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="12dp">
+
+        <Button
+            android:id="@+id/btn_start_config"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:text="启动"
+            android:textSize="12sp"
+            android:background="@drawable/button_start_small"
+            android:textColor="@android:color/white"
+            android:layout_marginEnd="4dp" />
+
+        <Button
+            android:id="@+id/btn_stop_config"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:text="停止"
+            android:textSize="12sp"
+            android:background="@drawable/button_stop_small"
+            android:textColor="@android:color/white"
+            android:layout_marginStart="2dp"
+            android:layout_marginEnd="2dp" />
+
+        <Button
+            android:id="@+id/btn_edit_config"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:text="编辑"
+            android:textSize="12sp"
+            android:background="@drawable/button_edit_small"
+            android:textColor="@android:color/white"
+            android:layout_marginStart="2dp"
+            android:layout_marginEnd="2dp" />
+
+        <Button
+            android:id="@+id/btn_delete_config"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:text="删除"
+            android:textSize="12sp"
+            android:background="@drawable/button_delete_small"
+            android:textColor="@android:color/white"
+            android:layout_marginStart="4dp" />
+
+    </LinearLayout>
+
+</LinearLayout> 

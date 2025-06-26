@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Android JNI 端口转发器"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:layout_marginBottom="24dp" />
+
+        <!-- 协议选择 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="协议类型:"
+            android:textSize="16sp"
+            android:layout_marginBottom="8dp" />
+
+        <RadioGroup
+            android:id="@+id/rg_protocol"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="16dp">
+
+            <RadioButton
+                android:id="@+id/rb_tcp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="TCP"
+                android:checked="true"
+                android:layout_marginEnd="24dp" />
+
+            <RadioButton
+                android:id="@+id/rb_udp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="UDP" />
+
+        </RadioGroup>
+
+        <!-- 监听端口 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="监听端口:"
+            android:textSize="16sp"
+            android:layout_marginBottom="8dp" />
+
+        <EditText
+            android:id="@+id/et_listen_port"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="请输入监听端口 (1-65535)"
+            android:inputType="number"
+            android:layout_marginBottom="16dp" />
+
+        <!-- 目标主机 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="目标主机:"
+            android:textSize="16sp"
+            android:layout_marginBottom="8dp" />
+
+        <EditText
+            android:id="@+id/et_target_host"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="请输入目标主机IP或域名"
+            android:inputType="textUri"
+            android:layout_marginBottom="16dp" />
+
+        <!-- 目标端口 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="目标端口:"
+            android:textSize="16sp"
+            android:layout_marginBottom="8dp" />
+
+        <EditText
+            android:id="@+id/et_target_port"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="请输入目标端口 (1-65535)"
+            android:inputType="number"
+            android:layout_marginBottom="24dp" />
+
+        <!-- 控制按钮 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btn_start"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="开始转发"
+                android:background="@color/button_start"
+                android:textColor="@android:color/white"
+                android:layout_marginEnd="8dp" />
+
+            <Button
+                android:id="@+id/btn_stop"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="停止最新"
+                android:background="@color/button_stop"
+                android:textColor="@android:color/white"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp" />
+
+            <Button
+                android:id="@+id/btn_stop_all"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="停止全部"
+                android:background="@color/button_stop_all"
+                android:textColor="@android:color/white"
+                android:layout_marginStart="8dp" />
+
+        </LinearLayout>
+
+        <!-- 状态显示 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="转发状态:"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/tv_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="无活动转发"
+            android:background="@drawable/status_background"
+            android:padding="12dp"
+            android:textSize="14sp"
+            android:fontFamily="monospace"
+            android:scrollbars="vertical"
+            android:maxLines="20"
+            android:scrollbarStyle="insideInset" />
+
+        <!-- 使用说明 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="使用说明:"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="• TCP转发：用于HTTP、HTTPS、SSH等基于连接的协议\n• UDP转发：用于DNS、NTP等无连接协议\n• 支持多个端口同时转发\n• 确保监听端口未被占用\n• 应用退出时会自动停止所有转发"
+            android:textSize="14sp"
+            android:lineSpacingMultiplier="1.2"
+            android:background="@drawable/help_background"
+            android:padding="12dp" />
+
+    </LinearLayout>
+
+</ScrollView>
