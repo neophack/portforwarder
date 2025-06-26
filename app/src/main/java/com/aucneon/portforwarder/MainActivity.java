@@ -628,7 +628,7 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
         
         // 在后台线程获取IP地址
         new Thread(() -> {
-            String deviceIp = configManager.getWifiIpAddress(this);
+            String allIps = configManager.getAllIpAddressesString(this);
             
             // 在主线程更新UI
             runOnUiThread(() -> {
@@ -636,14 +636,14 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
                     return;
                 }
                 
-                if (deviceIp != null && !deviceIp.equals("未知IP")) {
-                    tvDeviceIp.setText(deviceIp);
+                if (allIps != null && !allIps.equals("未找到可用IP")) {
+                    tvDeviceIp.setText(allIps);
                     tvDeviceIp.setTextColor(getResources().getColor(android.R.color.holo_blue_dark));
                 } else {
                     tvDeviceIp.setText("获取失败");
                     tvDeviceIp.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
                 }
-                Log.d(TAG, "Device IP updated: " + deviceIp);
+                Log.d(TAG, "Device IPs updated: " + allIps);
             });
         }).start();
     }
@@ -1014,7 +1014,7 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
             @Override
             public void onScanStarted() {
                 runOnUiThread(() -> {
-                    tvScanStatus.setText("正在扫描整个局域网 (254个IP地址)...");
+                    tvScanStatus.setText("正在扫描所有网络链路 (多个子网)...");
                     pbScanning.setVisibility(View.VISIBLE);
                     btnRescan.setEnabled(false);
                     devices.clear();
@@ -1026,14 +1026,16 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
             public void onDeviceFound(LanDevice device) {
                 runOnUiThread(() -> {
                     deviceAdapter.addDevice(device);
-                    tvScanStatus.setText(String.format("已发现 %d 个设备，继续扫描中...", devices.size()));
+                    tvScanStatus.setText(String.format("已发现 %d 个设备 (跨多个网络)，继续扫描...", devices.size()));
                 });
             }
 
             @Override
             public void onScanProgress(int current, int total) {
                 runOnUiThread(() -> {
-                    tvScanStatus.setText(String.format("扫描进度: %d/%d (已发现 %d 个设备)", current, total, devices.size()));
+                    double progress = (double) current / total * 100;
+                    tvScanStatus.setText(String.format("扫描进度: %.1f%% (%d/%d) - 已发现 %d 个设备", 
+                            progress, current, total, devices.size()));
                 });
             }
 
@@ -1044,9 +1046,34 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
                     btnRescan.setEnabled(true);
                     
                     if (allDevices.size() > 0) {
-                        tvScanStatus.setText(String.format("全网扫描完成！找到 %d 个设备，点击选择", allDevices.size()));
+                        // 统计不同网络的设备数量
+                        int wifiDevices = 0, homeDevices = 0, enterpriseDevices = 0, privateDevices = 0, otherDevices = 0;
+                        for (LanDevice device : allDevices) {
+                            if (device.hostname.contains("[WiFi网络]")) {
+                                wifiDevices++;
+                            } else if (device.hostname.contains("[家庭网络]")) {
+                                homeDevices++;
+                            } else if (device.hostname.contains("[企业网络]")) {
+                                enterpriseDevices++;
+                            } else if (device.hostname.contains("[专用网络]")) {
+                                privateDevices++;
+                            } else {
+                                otherDevices++;
+                            }
+                        }
+                        
+                        StringBuilder statusText = new StringBuilder();
+                        statusText.append(String.format("扫描完成！共找到 %d 个设备：", allDevices.size()));
+                        if (wifiDevices > 0) statusText.append(String.format("\nWiFi网络: %d个", wifiDevices));
+                        if (homeDevices > 0) statusText.append(String.format("\n家庭网络: %d个", homeDevices));
+                        if (enterpriseDevices > 0) statusText.append(String.format("\n企业网络: %d个", enterpriseDevices));
+                        if (privateDevices > 0) statusText.append(String.format("\n专用网络: %d个", privateDevices));
+                        if (otherDevices > 0) statusText.append(String.format("\n其他网络: %d个", otherDevices));
+                        statusText.append("\n点击设备选择IP地址");
+                        
+                        tvScanStatus.setText(statusText.toString());
                     } else {
-                        tvScanStatus.setText("全网扫描完成，未发现设备。请确保设备在同一局域网");
+                        tvScanStatus.setText("多网络扫描完成，未发现设备。\n请确保目标设备已连接到网络");
                     }
                 });
             }

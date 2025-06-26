@@ -14,5 +14,16 @@
         <item name="android:windowBackground">@android:color/white</item>
         <item name="android:textColorPrimary">@color/text_primary</item>
         <item name="android:textColorSecondary">@color/text_secondary</item>
+        
+        <!-- 强制使用自定义按钮颜色，防止车机系统覆盖 -->
+        <item name="colorButtonNormal">@color/colorPrimary</item>
+        <item name="android:colorButtonNormal">@color/colorPrimary</item>
+        <item name="buttonStyle">@style/CustomButtonStyle</item>
+    </style>
+    
+    <!-- 自定义按钮样式 -->
+    <style name="CustomButtonStyle" parent="Widget.AppCompat.Button">
+        <item name="android:background">@color/colorPrimary</item>
+        <item name="android:textColor">@android:color/white</item>
     </style>
 </resources>

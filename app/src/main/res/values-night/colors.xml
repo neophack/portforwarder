@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 夜间模式专用颜色配置 -->
+    
+    <!-- 强制覆盖Material Design默认颜色 -->
+    <color name="purple_200">#3F51B5</color>
+    <color name="purple_500">#3F51B5</color>
+    <color name="purple_700">#303F9F</color>
+    
+    <!-- 应用主题颜色 -->
+    <color name="colorPrimary">#3F51B5</color>
+    <color name="colorPrimaryDark">#303F9F</color>
+    <color name="colorAccent">#FF4081</color>
+    
+    <!-- Button colors - 强制使用指定颜色 -->
+    <color name="button_start">#4CAF50</color>
+    <color name="button_stop">#F44336</color>
+    <color name="button_stop_all">#D32F2F</color>
+    <color name="button_add">#2196F3</color>
+    <color name="button_edit">#FF9800</color>
+    <color name="button_delete">#F44336</color>
+    <color name="button_settings">#9C27B0</color>
+    <color name="button_smart_config">#FF5722</color>
+    <color name="button_refresh">#607D8B</color>
+    <color name="button_save">#4CAF50</color>
+    <color name="button_cancel">#757575</color>
+    
+    <!-- 背景和文字颜色 -->
+    <color name="background_dark">#424242</color>
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#BDBDBD</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="black">#FF000000</color>
+</resources> 

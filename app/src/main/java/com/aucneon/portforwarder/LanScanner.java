@@ -24,10 +24,10 @@ import java.util.concurrent.TimeUnit;
  */
 public class LanScanner {
     private static final String TAG = "LanScanner";
-    private static final int SCAN_TIMEOUT = 200; // 减少单个测试超时时间
-    private static final int SOCKET_TIMEOUT = 150; // Socket连接超时
-    private static final int MAX_THREADS = 50; // 增加线程数，每个任务超时更短
-    private static final int TOTAL_TIMEOUT_SECONDS = 45; // 总扫描超时45秒
+    private static final int SCAN_TIMEOUT = 150; // 减少单个测试超时时间
+    private static final int SOCKET_TIMEOUT = 120; // Socket连接超时
+    private static final int MAX_THREADS = 80; // 增加线程数以处理多网络扫描
+    private static final int TOTAL_TIMEOUT_SECONDS = 60; // 增加总扫描超时到60秒
     
     private Context context;
     private ExecutorService executorService;
@@ -123,34 +123,32 @@ public class LanScanner {
     }
     
     /**
-     * 新的可靠扫描方法 - 使用CountDownLatch确保完成
+     * 新的可靠扫描方法 - 扫描所有网络接口子网
      */
     private void scanNetworkReliable() {
-        String subnet = getLocalSubnet();
-        if (subnet == null) {
+        List<String> subnets = getAllLocalSubnets();
+        if (subnets.isEmpty()) {
             if (callback != null) {
                 callback.onScanError("无法获取本地网络信息");
             }
             return;
         }
         
-        Log.d(TAG, "Starting reliable scan of subnet: " + subnet);
+        Log.d(TAG, "Starting reliable scan of " + subnets.size() + " subnets: " + subnets);
         
         List<LanDevice> devices = Collections.synchronizedList(new ArrayList<>());
         AtomicInteger completedCount = new AtomicInteger(0);
-        List<Integer> scanIps = getScanIpRange();
-        int totalHosts = scanIps.size();
+        List<String> allHosts = getAllScanHosts(subnets);
+        int totalHosts = allHosts.size();
         
         // 使用CountDownLatch确保所有任务完成或超时
         CountDownLatch latch = new CountDownLatch(totalHosts);
         
-        Log.i(TAG, "Scanning " + totalHosts + " IP addresses with " + MAX_THREADS + " threads");
+        Log.i(TAG, "Scanning " + totalHosts + " IP addresses across " + subnets.size() + " subnets with " + MAX_THREADS + " threads");
         
         // 提交所有扫描任务
-        for (Integer ip : scanIps) {
+        for (String host : allHosts) {
             if (forceStop) break;
-            
-            final String host = subnet + "." + ip;
             
             executorService.submit(() -> {
                 try {
@@ -162,6 +160,9 @@ public class LanScanner {
                     if (device != null && device.isReachable) {
                         // 安全获取主机名
                         enrichDeviceInfoSafe(device);
+                        
+                        // 标记设备所属的网络
+                        device = markDeviceNetwork(device, subnets);
                         
                         devices.add(device);
                         
@@ -196,7 +197,7 @@ public class LanScanner {
             }
             
             if (!forceStop && callback != null) {
-                Log.i(TAG, "Scan completed. Found " + devices.size() + " devices");
+                Log.i(TAG, "Scan completed. Found " + devices.size() + " devices across " + subnets.size() + " subnets");
                 callback.onScanFinished(new ArrayList<>(devices));
             }
             
@@ -206,7 +207,136 @@ public class LanScanner {
     }
     
     /**
-     * 获取扫描IP范围 - 扫描整个局域网
+     * 获取所有本地子网
+     */
+    private List<String> getAllLocalSubnets() {
+        List<String> subnets = new ArrayList<>();
+        String wifiSubnet = null;
+        
+        try {
+            // 首先尝试从WiFi获取
+            WifiManager wifiManager = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
+            if (wifiManager != null && wifiManager.isWifiEnabled()) {
+                int ipAddress = wifiManager.getConnectionInfo().getIpAddress();
+                if (ipAddress != 0) {
+                    String ip = String.format("%d.%d.%d.%d",
+                            (ipAddress & 0xff),
+                            (ipAddress >> 8 & 0xff),
+                            (ipAddress >> 16 & 0xff),
+                            (ipAddress >> 24 & 0xff));
+                    wifiSubnet = getSubnetFromIp(ip);
+                    if (wifiSubnet != null) {
+                        subnets.add(wifiSubnet);
+                        Log.d(TAG, "Found WiFi subnet: " + wifiSubnet);
+                    }
+                }
+            }
+            
+            // 获取所有网络接口的子网
+            for (Enumeration<NetworkInterface> en = NetworkInterface.getNetworkInterfaces(); en.hasMoreElements();) {
+                NetworkInterface intf = en.nextElement();
+                if (!intf.isLoopback() && intf.isUp()) {
+                    for (Enumeration<InetAddress> enumIpAddr = intf.getInetAddresses(); enumIpAddr.hasMoreElements();) {
+                        InetAddress inetAddress = enumIpAddr.nextElement();
+                        if (!inetAddress.isLoopbackAddress() && !inetAddress.isLinkLocalAddress()) {
+                            String ip = inetAddress.getHostAddress();
+                            if (ip != null && ip.indexOf(':') < 0) { // 排除IPv6
+                                String subnet = getSubnetFromIp(ip);
+                                if (subnet != null && !subnets.contains(subnet)) {
+                                    subnets.add(subnet);
+                                    Log.d(TAG, "Found network subnet: " + subnet + " on interface " + intf.getDisplayName());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting local subnets", e);
+        }
+        
+        // 去重并限制扫描范围以避免过度扫描
+        subnets = new ArrayList<>(new java.util.LinkedHashSet<>(subnets));
+        
+        if (subnets.isEmpty()) {
+            Log.w(TAG, "No subnets found, will try default ranges");
+            // 添加常见的局域网子网作为备用
+            subnets.add("192.168.1");
+            subnets.add("192.168.0");
+            subnets.add("10.0.0");
+        }
+        
+        // 限制最大扫描子网数量以避免过度扫描
+        if (subnets.size() > 5) {
+            Log.w(TAG, "Too many subnets (" + subnets.size() + "), limiting to first 5");
+            subnets = subnets.subList(0, 5);
+        }
+        
+        return subnets;
+    }
+    
+    /**
+     * 获取所有子网的扫描主机列表
+     */
+    private List<String> getAllScanHosts(List<String> subnets) {
+        List<String> allHosts = new ArrayList<>();
+        
+        for (String subnet : subnets) {
+            // 每个子网扫描1-254
+            for (int i = 1; i <= 254; i++) {
+                allHosts.add(subnet + "." + i);
+            }
+        }
+        
+        Log.d(TAG, "Generated " + allHosts.size() + " hosts to scan across " + subnets.size() + " subnets");
+        return allHosts;
+    }
+    
+    /**
+     * 标记设备所属的网络
+     */
+    private LanDevice markDeviceNetwork(LanDevice device, List<String> subnets) {
+        String deviceSubnet = getSubnetFromIp(device.ipAddress);
+        if (deviceSubnet != null) {
+            // 检查是否是WiFi网络
+            try {
+                WifiManager wifiManager = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
+                if (wifiManager != null && wifiManager.isWifiEnabled()) {
+                    int ipAddress = wifiManager.getConnectionInfo().getIpAddress();
+                    if (ipAddress != 0) {
+                        String wifiIp = String.format("%d.%d.%d.%d",
+                                (ipAddress & 0xff),
+                                (ipAddress >> 8 & 0xff),
+                                (ipAddress >> 16 & 0xff),
+                                (ipAddress >> 24 & 0xff));
+                        String wifiSubnet = getSubnetFromIp(wifiIp);
+                        if (deviceSubnet.equals(wifiSubnet)) {
+                            device.hostname = device.hostname + " [WiFi网络]";
+                            return device;
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                // 静默处理错误
+            }
+            
+            // 尝试识别其他网络类型
+            if (deviceSubnet.startsWith("192.168.")) {
+                device.hostname = device.hostname + " [家庭网络]";
+            } else if (deviceSubnet.startsWith("10.")) {
+                device.hostname = device.hostname + " [企业网络]";
+            } else if (deviceSubnet.startsWith("172.")) {
+                device.hostname = device.hostname + " [专用网络]";
+            } else {
+                device.hostname = device.hostname + " [其他网络]";
+            }
+        }
+        
+        return device;
+    }
+    
+    /**
+     * 获取扫描IP范围 - 扫描整个局域网（保留原方法以兼容性）
      */
     private List<Integer> getScanIpRange() {
         List<Integer> ips = new ArrayList<>();
