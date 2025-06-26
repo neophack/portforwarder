@@ -95,6 +95,17 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
             isServiceBound = true;
             updateServiceStatus();
             Log.d(TAG, "Service connected");
+
+            // 如果已启用"开机启动服务"，则在应用启动并成功绑定服务后自动执行"一键启动"
+            try {
+                if (configManager != null && configManager.isAutoStartService()) {
+                    Log.d(TAG, "AutoStartService is enabled, running startAllEnabledConfigs()");
+                    // 由于此回调在主线程执行，直接调用即可
+                    startAllEnabledConfigs();
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to auto start enabled configs", e);
+            }
         }
 
         @Override
@@ -801,7 +812,7 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("设置");
         
-        String[] options = {"清除所有配置", "导出配置", "导入配置", "关于应用"};
+        String[] options = {"清除所有配置", "导出配置", "导入配置", "关于应用", "退出应用"};
         builder.setItems(options, (dialog, which) -> {
             switch (which) {
                 case 0:
@@ -815,6 +826,32 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
                     break;
                 case 3:
                     showAboutDialog();
+                    break;
+                case 4:
+                    // 退出应用，使用 finishAffinity 以关闭所有 Activity，随后调用 System.exit(0) 彻底结束进程
+                    AlertDialog exitDialog = new AlertDialog.Builder(this)
+                            .setTitle("退出应用")
+                            .setMessage("确定要退出应用吗？")
+                            .setPositiveButton("退出", (d, w) -> {
+                                try {
+                                    finishAffinity();
+                                    System.exit(0);
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Error while exiting app", e);
+                                }
+                            })
+                            .setNegativeButton("取消", null)
+                            .create();
+
+                    // 在显示后修改按钮文字颜色，确保在不同主题下可见
+                    exitDialog.setOnShowListener(d -> {
+                        exitDialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                                .setTextColor(ContextCompat.getColor(this, android.R.color.holo_red_dark));
+                        exitDialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+                                .setTextColor(ContextCompat.getColor(this, android.R.color.darker_gray));
+                    });
+
+                    exitDialog.show();
                     break;
             }
         });
