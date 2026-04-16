@@ -3,265 +3,262 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="16dp">
+    android:background="@color/ios_bg"
+    android:orientation="vertical">
 
-    <!-- 标题栏 -->
-    <LinearLayout
+    <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:layout_marginBottom="16dp">
+        android:paddingHorizontal="20dp"
+        android:paddingTop="36dp"
+        android:paddingBottom="8dp"
+        android:text="碯口转发"
+        android:textColor="@color/ios_title"
+        android:textSize="32sp"
+        android:textStyle="bold" />
+
+    <!-- 状态与开机自启 -->
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginBottom="16dp"
+        app:cardBackgroundColor="@color/ios_card"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="0dp">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:orientation="vertical">
 
-            <TextView
-                android:layout_width="0dp"
+            <!-- 全局服务状仁 -->
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="端口转发器"
-                android:textSize="20sp"
-                android:textStyle="bold"
-                android:textColor="@android:color/black" />
+                android:padding="16dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+                
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="戍务亞怂"
+                    android:textColor="@color/ios_title"
+                    android:textSize="17sp" />
+                    
+                <Space android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"/>
+                
+                <TextView
+                    android:id="@+id/tv_service_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="巜停正"
+                    android:textColor="@color/ios_subtitle"
+                    android:textSize="17sp" />
+            </LinearLayout>
 
-            <!-- 服务状态指示器 -->
-            <TextView
-                android:id="@+id/tv_service_status"
-                android:layout_width="wrap_content"
+            <View android:layout_width="match_parent" android:layout_height="0.5dp" android:background="@color/ios_divider" android:layout_marginStart="16dp"/>
+
+            <!-- 开机自启 -->
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="服务未启动"
-                android:textSize="12sp"
-                android:padding="6dp"
-                android:background="@drawable/service_status_background"
-                android:textColor="@android:color/white" />
+                android:padding="16dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+                
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:text="开机自启"
+                    android:textColor="@color/ios_title"
+                    android:textSize="17sp" />
+                    
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/sw_auto_start_service"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:thumbTint="@color/ios_card"
+                    app:trackTint="@color/ios_switch_on" />
+            </LinearLayout>
+            
+            <View android:layout_width="match_parent" android:layout_height="0.5dp" android:background="@color/ios_divider" android:layout_marginStart="16dp"/>
 
+            <!-- 统计俣恭 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="16dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+                
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+                    
+                    <TextView
+                        android:id="@+id/tv_config_count"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="配置数mn:n 0"
+                        android:textColor="@color/ios_subtitle"
+                        android:textSize="13sp" />
+                        
+                    <TextView
+                        android:id="@+id/tv_active_count"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="胘鹜鸸 0"
+                        android:textColor="@color/ios_subtitle"
+                        android:textSize="13sp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="end">
+                    
+                    <TextView
+                        android:id="@+id/tv_device_ip"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="IP: 127.0.0.1"
+                        android:textColor="@color/ios_subtitle"
+                        android:textSize="13sp" />
+                        
+                    <TextView
+                        android:id="@+id/tv_last_update"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="刚刚"
+                        android:textColor="@color/ios_subtitle"
+                        android:textSize="13sp" />
+                </LinearLayout>
+            </LinearLayout>
         </LinearLayout>
+    </androidx.cardview.widget.CardView>
 
-        <!-- 设备IP显示 -->
+    <!-- 操作楞钮区 -->
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginBottom="16dp"
+        android:scrollbars="none">
+
         <LinearLayout
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginTop="8dp">
+            android:orientation="horizontal">
 
-            <TextView
+            <Button
+                android:id="@+id/btn_start_all"
+                style="?android:attr/borderlessButtonStyle"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="本机IP: "
-                android:textSize="14sp"
-                android:textColor="@android:color/darker_gray" />
+                android:layout_height="40dp"
+                android:background="@drawable/button_start_small"
+                android:text=" 全启 "
+                android:textColor="@color/ios_green"
+                android:textSize="14sp" />
 
-            <TextView
-                android:id="@+id/tv_device_ip"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="获取中..."
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:textColor="@android:color/holo_blue_dark"
-                android:maxLines="5"
-                android:scrollbars="vertical"
-                android:ellipsize="end" />
+            <Button
+                android:id="@+id/btn_stop_all_new"
+                style="?android:attr/borderlessButtonStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/button_stop_small"
+                android:text=" 全停 "
+                android:textColor="@color/ios_red"
+                android:textSize="14sp" />
+
+            <Button
+                android:id="@+id/btn_add_config"
+                style="?android:attr/borderlessButtonStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/button_edit_small"
+                android:text=" 添加 "
+                android:textColor="@color/ios_blue"
+                android:textSize="14sp" />
+                
+            <Button
+                android:id="@+id/btn_smart_config"
+                style="?android:attr/borderlessButtonStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/button_edit_small"
+                android:text=" 智跽配置 "
+                android:textColor="@color/ios_blue"
+                android:textSize="14sp" />
+
+            <Button
+                android:id="@+id/btn_refresh"
+                style="?android:attr/borderlessButtonStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/button_edit_small"
+                android:text=" 刷新配置 "
+                android:textColor="@color/ios_blue"
+                android:textSize="14sp" />
 
             <Button
                 android:id="@+id/btn_refresh_ip"
+                style="?android:attr/borderlessButtonStyle"
                 android:layout_width="wrap_content"
-                android:layout_height="28dp"
-                android:text="刷新IP"
-                android:textSize="10sp"
-                android:background="@drawable/button_refresh"
-                android:textColor="@android:color/white"
-                android:paddingStart="12dp"
-                android:paddingEnd="12dp" />
-
+                android:layout_height="40dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/button_edit_small"
+                android:text=" 刷新IP "
+                android:textColor="@color/ios_blue"
+                android:textSize="14sp" />
+                
+            <Button
+                android:id="@+id/btn_settings"
+                style="?android:attr/borderlessButtonStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/button_edit_small"
+                android:text=" settings "
+                android:textColor="@color/ios_subtitle"
+                android:textSize="14sp" />
         </LinearLayout>
+    </HorizontalScrollView>
 
-    </LinearLayout>
-
-    <!-- 全局控制按钮 -->
-    <LinearLayout
+    <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginBottom="16dp">
+        android:paddingHorizontal="32dp"
+        android:paddingBottom="6dp"
+        android:text="胆陇列表管"
+        android:textColor="@color/ios_subtitle"
+        android:textSize="13sp" />
 
-        <Button
-            android:id="@+id/btn_start_all"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="一键启动"
-            android:background="@color/button_start"
-            android:textColor="@android:color/white"
-            android:layout_marginEnd="4dp" />
-
-        <Button
-            android:id="@+id/btn_stop_all_new"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="全部停止"
-            android:background="@color/button_stop"
-            android:textColor="@android:color/white"
-            android:layout_marginStart="4dp"
-            android:layout_marginEnd="4dp" />
-
-        <Button
-            android:id="@+id/btn_add_config"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="添加配置"
-            android:background="@color/button_add"
-            android:textColor="@android:color/white"
-            android:layout_marginStart="4dp" />
-
-    </LinearLayout>
-
-    <!-- 设置选项 -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:background="@drawable/settings_background"
-        android:padding="12dp"
-        android:layout_marginBottom="16dp">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
-            android:text="开机启动服务:"
-            android:textSize="14sp" />
-
-        <Switch
-            android:id="@+id/sw_auto_start_service"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="16dp" />
-
-        <Button
-            android:id="@+id/btn_smart_config"
-            android:layout_width="0dp"
-            android:layout_height="32dp"
-            android:layout_weight="1"
-            android:text="配网"
-            android:textSize="12sp"
-            android:background="@drawable/button_smart_config"
-            android:textColor="@android:color/white"
-            android:layout_marginEnd="4dp" />
-
-        <Button
-            android:id="@+id/btn_settings"
-            android:layout_width="0dp"
-            android:layout_height="32dp"
-            android:layout_weight="1"
-            android:text="设置"
-            android:textSize="12sp"
-            android:background="@drawable/button_settings"
-            android:textColor="@android:color/white"
-            android:layout_marginStart="4dp" />
-
-    </LinearLayout>
-
-    <!-- 转发配置列表标题 -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:layout_marginBottom="8dp">
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="转发配置列表"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:textColor="@android:color/black" />
-
-        <TextView
-            android:id="@+id/tv_config_count"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="0 个配置"
-            android:textSize="12sp"
-            android:textColor="@android:color/darker_gray" />
-
-    </LinearLayout>
-
-    <!-- 转发配置列表 -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rv_forward_configs"
+    <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:scrollbars="vertical" />
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginBottom="16dp"
+        app:cardBackgroundColor="@color/ios_card"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="0dp">
 
-    <!-- 底部状态栏 -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:background="@drawable/status_bar_background"
-        android:padding="12dp"
-        android:layout_marginTop="8dp">
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rv_forward_configs"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"/>
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="活动转发:"
-            android:textSize="12sp"
-            android:textColor="@android:color/darker_gray" />
+    </androidx.cardview.widget.CardView>
 
-        <TextView
-            android:id="@+id/tv_active_count"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="0"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            android:textColor="@android:color/holo_green_dark"
-            android:layout_marginStart="4dp"
-            android:layout_marginEnd="16dp" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="最后更新:"
-            android:textSize="12sp"
-            android:textColor="@android:color/darker_gray" />
-
-        <TextView
-            android:id="@+id/tv_last_update"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="--:--:--"
-            android:textSize="12sp"
-            android:textColor="@android:color/darker_gray"
-            android:layout_marginStart="4dp" />
-
-        <Button
-            android:id="@+id/btn_refresh"
-            android:layout_width="wrap_content"
-            android:layout_height="28dp"
-            android:text="刷新"
-            android:textSize="10sp"
-            android:background="@drawable/button_refresh"
-            android:textColor="@android:color/white"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp" />
-
-    </LinearLayout>
-
-</LinearLayout> 
+</LinearLayout>

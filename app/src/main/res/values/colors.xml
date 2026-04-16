@@ -54,4 +54,12 @@
     <color name="ios_green">#30D158</color>
     <color name="ios_red">#FF453A</color>
     <color name="ios_blue">#0A84FF</color>
+
+    <!-- iOS 风格颜色 -->
+    <color name="ios_bg">#F2F2F7</color>
+    <color name="ios_card">#FFFFFF</color>
+    <color name="ios_divider">#E5E5EA</color>
+    <color name="ios_title">#000000</color>
+    <color name="ios_subtitle">#8E8E93</color>
+    <color name="ios_switch_on">#34C759</color>
 </resources>
