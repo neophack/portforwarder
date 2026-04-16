@@ -10,6 +10,8 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
+import java.util.Locale;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -22,6 +24,19 @@ public class ForwardAdapter extends RecyclerView.Adapter<ForwardAdapter.ViewHold
     private OnConfigActionListener listener;
     private OnItemLongClickListener longClickListener;
     private Context context;
+    private final Map<Integer, TrafficSample> trafficSamples = new HashMap<>();
+
+    private static class TrafficSample {
+        final long timestampMs;
+        final long upstreamBytes;
+        final long downstreamBytes;
+
+        TrafficSample(long timestampMs, long upstreamBytes, long downstreamBytes) {
+            this.timestampMs = timestampMs;
+            this.upstreamBytes = upstreamBytes;
+            this.downstreamBytes = downstreamBytes;
+        }
+    }
 
     public interface OnConfigActionListener {
         void onStartConfig(ForwardConfig config);
@@ -81,6 +96,7 @@ public class ForwardAdapter extends RecyclerView.Adapter<ForwardAdapter.ViewHold
     
     public void updateConfigs(List<ForwardConfig> newConfigs) {
         this.configs = newConfigs;
+        trafficSamples.clear();
         notifyDataSetChanged();
     }
     
@@ -203,18 +219,64 @@ public class ForwardAdapter extends RecyclerView.Adapter<ForwardAdapter.ViewHold
 
             // 更新状态显示 (iOS style)
             if (isRunning) {
-                tvStatus.setText(context.getString(R.string.forward_running, sessionId));
-                tvStatus.setTextColor(ContextCompat.getColor(context, R.color.ios_green));
+                String speedText = updateTrafficSpeed(config, sessionId);
+                tvStatus.setText(context.getString(R.string.forward_running, sessionId) + "  " + speedText);
+                tvStatus.setTextColor(ContextCompat.getColor(context, android.R.color.white));
                 btnStart.setEnabled(false);
                 btnStop.setEnabled(true);
                 btnStart.setBackgroundResource(R.drawable.button_start_running_small);
             } else {
                 tvStatus.setText(context.getString(R.string.forward_stopped));
-                tvStatus.setTextColor(ContextCompat.getColor(context, R.color.text_secondary));
+                tvStatus.setTextColor(ContextCompat.getColor(context, android.R.color.white));
                 btnStart.setEnabled(config.enabled);
                 btnStop.setEnabled(false);
                 btnStart.setBackgroundResource(R.drawable.button_start_small);
+                trafficSamples.remove(config.id);
             }
+        }
+
+        private String updateTrafficSpeed(ForwardConfig config, int sessionId) {
+            PortForwarder.TrafficInfo trafficInfo = PortForwarder.getForwardTraffic(sessionId);
+            long nowMs = System.currentTimeMillis();
+
+            TrafficSample previous = trafficSamples.get(config.id);
+            trafficSamples.put(config.id, new TrafficSample(
+                    nowMs,
+                    trafficInfo.upstreamBytes,
+                    trafficInfo.downstreamBytes
+            ));
+
+            if (previous == null) {
+                return "↑ --/s  ↓ --/s";
+            }
+
+            long dt = nowMs - previous.timestampMs;
+            if (dt <= 0) {
+                return "↑ --/s  ↓ --/s";
+            }
+
+            long upDelta = Math.max(0, trafficInfo.upstreamBytes - previous.upstreamBytes);
+            long downDelta = Math.max(0, trafficInfo.downstreamBytes - previous.downstreamBytes);
+
+            double upBytesPerSec = upDelta * 1000.0 / dt;
+            double downBytesPerSec = downDelta * 1000.0 / dt;
+
+                return String.format(
+                    Locale.getDefault(),
+                    "↑ %s/s  ↓ %s/s",
+                    formatRate(upBytesPerSec),
+                    formatRate(downBytesPerSec)
+                );
+        }
+
+        private String formatRate(double bytesPerSec) {
+            if (bytesPerSec < 1024) {
+                return String.format(Locale.getDefault(), "%.0f B", bytesPerSec);
+            }
+            if (bytesPerSec < 1024 * 1024) {
+                return String.format(Locale.getDefault(), "%.1f KB", bytesPerSec / 1024.0);
+            }
+            return String.format(Locale.getDefault(), "%.2f MB", bytesPerSec / (1024.0 * 1024.0));
         }
     }
 } 

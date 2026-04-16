@@ -20,6 +20,9 @@ public class ConfigManager {
     private static final String KEY_FORWARD_CONFIGS = "forward_configs";
     private static final String KEY_AUTO_START_SERVICE = "auto_start_service";
     private static final String KEY_LAST_CONFIG_ID = "last_config_id";
+    private static final String KEY_HELLO_WEB_ENABLED = "hello_web_enabled";
+    private static final String KEY_HELLO_WEB_PORT = "hello_web_port";
+    private static final int DEFAULT_HELLO_WEB_PORT = 18080;
     
     private static ConfigManager instance;
     private SharedPreferences preferences;
@@ -169,6 +172,24 @@ public class ConfigManager {
      */
     public boolean isAutoStartService() {
         return preferences.getBoolean(KEY_AUTO_START_SERVICE, false);
+    }
+
+    public void setHelloWebServerEnabled(boolean enabled) {
+        preferences.edit().putBoolean(KEY_HELLO_WEB_ENABLED, enabled).apply();
+    }
+
+    public boolean isHelloWebServerEnabled() {
+        return preferences.getBoolean(KEY_HELLO_WEB_ENABLED, false);
+    }
+
+    public void setHelloWebServerPort(int port) {
+        if (port >= 1024 && port <= 65535) {
+            preferences.edit().putInt(KEY_HELLO_WEB_PORT, port).apply();
+        }
+    }
+
+    public int getHelloWebServerPort() {
+        return preferences.getInt(KEY_HELLO_WEB_PORT, DEFAULT_HELLO_WEB_PORT);
     }
     
     /**

@@ -28,6 +28,8 @@ public class PortForwarderService extends Service {
 
     private PowerManager.WakeLock wakeLock;
     private NotificationManagerCompat notificationManager;
+    private ConfigManager configManager;
+    private HelloWebServer helloWebServer;
 
     // 绑定器类
     public class PortForwarderBinder extends Binder {
@@ -52,6 +54,14 @@ public class PortForwarderService extends Service {
 
         // 初始化通知管理器
         notificationManager = NotificationManagerCompat.from(this);
+        configManager = ConfigManager.getInstance(this);
+
+        // 初始化并按设置启动诊断网页服务
+        helloWebServer = new HelloWebServer(this, configManager.getHelloWebServerPort());
+        if (configManager.isHelloWebServerEnabled()) {
+            boolean started = helloWebServer.start();
+            Log.d(TAG, "Hello web server auto start: " + started);
+        }
 
         // 创建通知渠道
         createNotificationChannel();
@@ -92,6 +102,11 @@ public class PortForwarderService extends Service {
 
         // 停止所有转发
         PortForwarder.stopAllForwards();
+
+        // 停止网页服务
+        if (helloWebServer != null) {
+            helloWebServer.stop();
+        }
 
         // 释放WakeLock
         if (wakeLock != null && wakeLock.isHeld()) {
@@ -216,6 +231,40 @@ public class PortForwarderService extends Service {
      */
     public boolean isRunning() {
         return true; // 如果服务对象存在，说明正在运行
+    }
+
+    public synchronized boolean startHelloWebServer() {
+        if (helloWebServer == null) {
+            helloWebServer = new HelloWebServer(this, configManager.getHelloWebServerPort());
+        }
+        boolean started = helloWebServer.start();
+        if (started) {
+            configManager.setHelloWebServerEnabled(true);
+        }
+        return started;
+    }
+
+    public synchronized boolean stopHelloWebServer() {
+        if (helloWebServer == null) {
+            configManager.setHelloWebServerEnabled(false);
+            return true;
+        }
+        boolean stopped = helloWebServer.stop();
+        if (stopped) {
+            configManager.setHelloWebServerEnabled(false);
+        }
+        return stopped;
+    }
+
+    public synchronized boolean isHelloWebServerRunning() {
+        return helloWebServer != null && helloWebServer.isRunning();
+    }
+
+    public int getHelloWebServerPort() {
+        if (helloWebServer != null) {
+            return helloWebServer.getPort();
+        }
+        return configManager != null ? configManager.getHelloWebServerPort() : 18080;
     }
 
     /**

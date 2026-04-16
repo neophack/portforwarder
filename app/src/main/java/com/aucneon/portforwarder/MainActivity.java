@@ -73,6 +73,7 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
     private List<ForwardConfig> forwardConfigs;
     private Handler updateHandler;
     private Runnable updateRunnable;
+    private long lastDeviceIpUpdateMs = 0L;
 
     // 服务连接
     private PortForwarderService portForwarderService;
@@ -426,8 +427,8 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
             @Override
             public void run() {
                 refreshStatus();
-                // 降低更新频率到5秒，减少CPU占用
-                updateHandler.postDelayed(this, 5000);
+                // 每秒刷新一次，支持实时速度显示
+                updateHandler.postDelayed(this, 1000);
             }
         };
         updateHandler.post(updateRunnable);
@@ -452,7 +453,11 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
             updateServiceStatus();
             updateActiveCount();
             updateLastUpdateTime();
-            updateDeviceIp();
+            long now = System.currentTimeMillis();
+            if (now - lastDeviceIpUpdateMs >= 10000L) {
+                updateDeviceIp();
+                lastDeviceIpUpdateMs = now;
+            }
             
             // 检查forwardAdapter是否仍然有效
             if (forwardAdapter != null) {
@@ -772,8 +777,22 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
     private void showSettingsDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle(getString(R.string.settings));
+
+        String helloToggleText = getString(
+                (isServiceBound && portForwarderService != null && portForwarderService.isHelloWebServerRunning())
+                        ? R.string.hello_web_stop
+                        : R.string.hello_web_start
+        );
         
-        String[] options = {getString(R.string.clear_all_configs), getString(R.string.export_configs), getString(R.string.import_configs), getString(R.string.about_app), getString(R.string.exit_app)};
+        String[] options = {
+                getString(R.string.clear_all_configs),
+                getString(R.string.export_configs),
+                getString(R.string.import_configs),
+                helloToggleText,
+                getString(R.string.hello_web_open),
+                getString(R.string.about_app),
+                getString(R.string.exit_app)
+        };
         builder.setItems(options, (dialog, which) -> {
             switch (which) {
                 case 0:
@@ -786,9 +805,15 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
                     ConfigExporter.startImport(MainActivity.this);
                     break;
                 case 3:
-                    showAboutDialog();
+                    toggleHelloWebService();
                     break;
                 case 4:
+                    openHelloWebServicePage();
+                    break;
+                case 5:
+                    showAboutDialog();
+                    break;
+                case 6:
                     // 退出应用：先停止所有转发，再停止服务，最后关闭所有 Activity
                     AlertDialog exitDialog = new AlertDialog.Builder(this)
                             .setTitle(getString(R.string.exit_app))
@@ -831,6 +856,43 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
         });
         
         builder.show();
+    }
+
+    private void toggleHelloWebService() {
+        if (!isServiceBound || portForwarderService == null) {
+            showToast(getString(R.string.service_not_started));
+            return;
+        }
+
+        boolean running = portForwarderService.isHelloWebServerRunning();
+        boolean success;
+
+        if (running) {
+            success = portForwarderService.stopHelloWebServer();
+            if (success) {
+                showToast(getString(R.string.hello_web_stopped));
+            } else {
+                showToast(getString(R.string.hello_web_toggle_failed));
+            }
+        } else {
+            success = portForwarderService.startHelloWebServer();
+            if (success) {
+                int port = portForwarderService.getHelloWebServerPort();
+                showToast(getString(R.string.hello_web_started_format, port));
+                WebPreviewActivity.launch(this, "http://127.0.0.1:" + port, getString(R.string.hello_web_title));
+            } else {
+                showToast(getString(R.string.hello_web_toggle_failed));
+            }
+        }
+    }
+
+    private void openHelloWebServicePage() {
+        if (!isServiceBound || portForwarderService == null || !portForwarderService.isHelloWebServerRunning()) {
+            showToast(getString(R.string.hello_web_not_running));
+            return;
+        }
+        int port = portForwarderService.getHelloWebServerPort();
+        WebPreviewActivity.launch(this, "http://127.0.0.1:" + port, getString(R.string.hello_web_title));
     }
 
     // 新增方法：显示清除配置确认对话框

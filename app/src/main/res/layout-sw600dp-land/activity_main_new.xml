@@ -106,37 +106,49 @@
                 android:layout_marginBottom="16dp"
                 android:textColor="@android:color/black" />
 
-            <Button
-                android:id="@+id/btn_start_all"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="一键启动"
-                android:textSize="18sp"
-                android:background="@color/button_start"
-                android:textColor="@android:color/white"
-                android:padding="16dp"
-                android:layout_marginBottom="12dp" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
 
-            <Button
-                android:id="@+id/btn_stop_all_new"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="全部停止"
-                android:textSize="18sp"
-                android:background="@color/button_stop"
-                android:textColor="@android:color/white"
-                android:padding="16dp"
-                android:layout_marginBottom="12dp" />
+                <Button
+                    android:id="@+id/btn_start_all"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="4dp"
+                    android:text="一键启动"
+                    android:textSize="16sp"
+                    android:background="@color/button_start"
+                    android:textColor="@android:color/white"
+                    android:padding="14dp" />
 
-            <Button
-                android:id="@+id/btn_add_config"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="添加配置"
-                android:textSize="18sp"
-                android:background="@color/button_add"
-                android:textColor="@android:color/white"
-                android:padding="16dp" />
+                <Button
+                    android:id="@+id/btn_stop_all_new"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="4dp"
+                    android:text="全部停止"
+                    android:textSize="16sp"
+                    android:background="@color/button_stop"
+                    android:textColor="@android:color/white"
+                    android:padding="14dp" />
+
+                <Button
+                    android:id="@+id/btn_add_config"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
+                    android:text="添加配置"
+                    android:textSize="16sp"
+                    android:background="@color/button_add"
+                    android:textColor="@android:color/white"
+                    android:padding="14dp" />
+            </LinearLayout>
 
         </LinearLayout>
 

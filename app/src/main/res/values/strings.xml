@@ -108,6 +108,14 @@
     <string name="import_configs">导入配置</string>
     <string name="about_app">关于应用</string>
     <string name="exit_app">退出应用</string>
+    <string name="hello_web_start">启动诊断网页服务</string>
+    <string name="hello_web_stop">停止诊断网页服务</string>
+    <string name="hello_web_open">打开诊断网页</string>
+    <string name="hello_web_title">Hello Diagnostics</string>
+    <string name="hello_web_started_format">诊断网页服务已启动，端口: %d</string>
+    <string name="hello_web_stopped">诊断网页服务已停止</string>
+    <string name="hello_web_not_running">诊断网页服务未运行，请先启动</string>
+    <string name="hello_web_toggle_failed">诊断网页服务操作失败</string>
     <string name="exit_confirm">确定要退出应用吗？</string>
     <string name="exit">退出</string>
     <string name="clear_confirm">确定要清除所有转发配置吗？此操作不可撤销。</string>

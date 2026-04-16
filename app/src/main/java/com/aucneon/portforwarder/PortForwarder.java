@@ -65,6 +65,16 @@ public class PortForwarder {
         }
     }
 
+    public static class TrafficInfo {
+        public final long upstreamBytes;
+        public final long downstreamBytes;
+
+        public TrafficInfo(long upstreamBytes, long downstreamBytes) {
+            this.upstreamBytes = upstreamBytes;
+            this.downstreamBytes = downstreamBytes;
+        }
+    }
+
     /**
      * 创建TCP端口转发
      * @param listenPort 监听端口
@@ -187,6 +197,23 @@ public class PortForwarder {
     }
 
     /**
+     * 获取指定会话的累计流量统计
+     * @param sessionId 会话ID
+     * @return 上下行累计字节数
+     */
+    public static TrafficInfo getForwardTraffic(int sessionId) {
+        try {
+            long[] traffic = nativeGetForwardTraffic(sessionId);
+            if (traffic != null && traffic.length >= 2) {
+                return new TrafficInfo(traffic[0], traffic[1]);
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to get forward traffic for session " + sessionId, e);
+        }
+        return new TrafficInfo(0, 0);
+    }
+
+    /**
      * 检查端口是否可用
      * @param port 要检查的端口
      * @return 端口是否可用
@@ -272,5 +299,6 @@ public class PortForwarder {
                                                     String targetHost, int targetPort);
     private static native boolean nativeStopForward(int sessionId);
     private static native boolean isForwardRunning(int sessionId);
+    private static native long[] nativeGetForwardTraffic(int sessionId);
     private static native void nativeStopAllForwards();
 }

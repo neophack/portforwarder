@@ -62,4 +62,10 @@
     <color name="ios_title">#000000</color>
     <color name="ios_subtitle">#8E8E93</color>
     <color name="ios_switch_on">#34C759</color>
+
+    <!-- iPadOS style palette -->
+    <color name="ipados_title">#101828</color>
+    <color name="ipados_subtitle">#667085</color>
+    <color name="ipados_card">#FDFEFF</color>
+    <color name="ipados_divider">#DDE4ED</color>
 </resources>

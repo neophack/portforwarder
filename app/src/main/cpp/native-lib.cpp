@@ -7,6 +7,7 @@
 #include <atomic>
 #include <future>
 #include <chrono>
+#include <cstdint>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -104,8 +105,10 @@ struct ForwardSession {
     std::thread workerThread;
     std::vector<ClientThreadEntry> clientThreads;
     std::mutex clientThreadsMutex;
+    std::atomic<uint64_t> upstreamBytes;
+    std::atomic<uint64_t> downstreamBytes;
 
-    ForwardSession() : running(false), listenSocket(-1) {}
+    ForwardSession() : running(false), listenSocket(-1), upstreamBytes(0), downstreamBytes(0) {}
 };
 
 // 全局会话管理
@@ -114,7 +117,7 @@ static std::mutex g_sessionMutex;
 static int g_nextSessionId = 1;
 
 // TCP转发处理
-void handleTcpConnection(int clientSocket, const std::string& targetHost, int targetPort) {
+void handleTcpConnection(int clientSocket, ForwardSession* session) {
     int targetSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (targetSocket < 0) {
         LOGE("Failed to create target socket");
@@ -123,15 +126,15 @@ void handleTcpConnection(int clientSocket, const std::string& targetHost, int ta
     }
 
     struct sockaddr_in targetAddr;
-    if (resolve_host(targetHost, targetPort, SOCK_STREAM, &targetAddr) < 0) {
-        LOGE("Failed to resolve target host %s", targetHost.c_str());
+    if (resolve_host(session->targetHost, session->targetPort, SOCK_STREAM, &targetAddr) < 0) {
+        LOGE("Failed to resolve target host %s", session->targetHost.c_str());
         close(clientSocket);
         close(targetSocket);
         return;
     }
 
     if (connect(targetSocket, (struct sockaddr*)&targetAddr, sizeof(targetAddr)) < 0) {
-        LOGE("Failed to connect to target %s:%d", targetHost.c_str(), targetPort);
+        LOGE("Failed to connect to target %s:%d", session->targetHost.c_str(), session->targetPort);
         close(clientSocket);
         close(targetSocket);
         return;
@@ -160,6 +163,7 @@ void handleTcpConnection(int clientSocket, const std::string& targetHost, int ta
             if (bytes <= 0) {
                 running = false;
             } else {
+                session->upstreamBytes.fetch_add((uint64_t)bytes, std::memory_order_relaxed);
                 if (send_all(targetSocket, buffer, bytes) < 0) {
                     running = false;
                 }
@@ -172,6 +176,7 @@ void handleTcpConnection(int clientSocket, const std::string& targetHost, int ta
             if (bytes <= 0) {
                 running = false;
             } else {
+                session->downstreamBytes.fetch_add((uint64_t)bytes, std::memory_order_relaxed);
                 if (send_all(clientSocket, buffer, bytes) < 0) {
                     running = false;
                 }
@@ -236,7 +241,7 @@ void tcpForwardWorker(ForwardSession* session) {
 
             auto finished = std::make_shared<std::atomic<bool>>(false);
             std::thread t([clientSocket, session, finished]() {
-                handleTcpConnection(clientSocket, session->targetHost, session->targetPort);
+                handleTcpConnection(clientSocket, session);
                 finished->store(true);
             });
             session->clientThreads.emplace_back(std::move(t), finished);
@@ -329,6 +334,7 @@ void udpForwardWorker(ForwardSession* session) {
             // 转发数据到目标服务器
             if (targetSocket >= 0) {
                 send(targetSocket, buffer, bytes, 0);
+                session->upstreamBytes.fetch_add((uint64_t)bytes, std::memory_order_relaxed);
                 
                 // 只为新连接启动回包线程
                 if (isNewConnection) {
@@ -340,6 +346,7 @@ void udpForwardWorker(ForwardSession* session) {
                         while (session->running) {
                             ssize_t recvBytes = recv(targetSocket, recvBuffer, sizeof(recvBuffer), 0);
                             if (recvBytes > 0) {
+                                session->downstreamBytes.fetch_add((uint64_t)recvBytes, std::memory_order_relaxed);
                                 // 转发回客户端
                                 sendto(session->listenSocket, recvBuffer, recvBytes, 0,
                                        (struct sockaddr*)&localClientAddr, sizeof(localClientAddr));
@@ -520,6 +527,28 @@ Java_com_aucneon_portforwarder_PortForwarder_isForwardRunning(
     }
 
     return it->second->running ? JNI_TRUE : JNI_FALSE;
+}
+
+// 获取会话累计流量 [upstreamBytes, downstreamBytes]
+JNIEXPORT jlongArray JNICALL
+Java_com_aucneon_portforwarder_PortForwarder_nativeGetForwardTraffic(
+        JNIEnv *env, jobject thiz, jint sessionId) {
+
+    jlong values[2] = {0, 0};
+    {
+        std::lock_guard<std::mutex> lock(g_sessionMutex);
+        auto it = g_sessions.find(sessionId);
+        if (it != g_sessions.end()) {
+            values[0] = (jlong)it->second->upstreamBytes.load(std::memory_order_relaxed);
+            values[1] = (jlong)it->second->downstreamBytes.load(std::memory_order_relaxed);
+        }
+    }
+
+    jlongArray result = env->NewLongArray(2);
+    if (result != nullptr) {
+        env->SetLongArrayRegion(result, 0, 2, values);
+    }
+    return result;
 }
 
 // 停止所有转发
