@@ -1,0 +1,193 @@
+package com.aucneon.portforwarder;
+
+import android.content.Context;
+import android.util.Log;
+import java.net.NetworkInterface;
+import java.net.InetAddress;
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.List;
+
+public class NetworkUtils {
+    private static final String TAG = "NetworkUtils";
+
+    /**
+     * 获取设备的本地IP地址
+     */
+    public static String getDeviceIpAddress() {
+        try {
+            for (Enumeration<NetworkInterface> en = NetworkInterface.getNetworkInterfaces(); en.hasMoreElements();) {
+                NetworkInterface intf = en.nextElement();
+                for (Enumeration<InetAddress> enumIpAddr = intf.getInetAddresses(); enumIpAddr.hasMoreElements();) {
+                    InetAddress inetAddress = enumIpAddr.nextElement();
+                    if (!inetAddress.isLoopbackAddress() && !inetAddress.isLinkLocalAddress()) {
+                        String ip = inetAddress.getHostAddress();
+                        // 过滤IPv6地址
+                        if (ip != null && ip.indexOf(':') < 0) {
+                            Log.d(TAG, "Found device IP: " + ip);
+                            return ip;
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to get device IP address", e);
+        }
+        return "未知IP";
+    }
+
+    /**
+     * 获取设备的所有本地IP地址（除回环地址）
+     */
+    public static List<String> getAllDeviceIpAddresses() {
+        List<String> ipList = new ArrayList<>();
+        try {
+            for (Enumeration<NetworkInterface> en = NetworkInterface.getNetworkInterfaces(); en.hasMoreElements();) {
+                NetworkInterface intf = en.nextElement();
+                // 跳过回环和未启用的接口
+                if (intf.isLoopback() || !intf.isUp()) {
+                    continue;
+                }
+
+                for (Enumeration<InetAddress> enumIpAddr = intf.getInetAddresses(); enumIpAddr.hasMoreElements();) {
+                    InetAddress inetAddress = enumIpAddr.nextElement();
+                    // 排除回环地址和链路本地地址
+                    if (!inetAddress.isLoopbackAddress() && !inetAddress.isLinkLocalAddress()) {
+                        String ip = inetAddress.getHostAddress();
+                        // 过滤IPv6地址和无效IP
+                        if (ip != null && ip.indexOf(':') < 0 && !ip.equals("0.0.0.0")) {
+                            String interfaceName = intf.getDisplayName();
+                            String ipWithInterface = ip + " (" + interfaceName + ")";
+                            ipList.add(ipWithInterface);
+                            Log.d(TAG, "Found device IP: " + ipWithInterface);
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to get device IP addresses", e);
+        }
+
+        if (ipList.isEmpty()) {
+            ipList.add("未找到可用IP");
+        }
+
+        return ipList;
+    }
+
+    /**
+     * 获取设备的所有本地IP地址的字符串表示
+     */
+    public static String getAllDeviceIpAddressesString() {
+        List<String> ipList = getAllDeviceIpAddresses();
+        if (ipList.size() == 1 && ipList.get(0).equals("未找到可用IP")) {
+            return "未找到可用IP";
+        }
+
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < ipList.size(); i++) {
+            if (i > 0) {
+                sb.append("\n");
+            }
+            sb.append(ipList.get(i));
+        }
+        return sb.toString();
+    }
+
+    /**
+     * 获取WiFi IP地址（备用方法）
+     */
+    public static String getWifiIpAddress(Context context) {
+        try {
+            android.net.wifi.WifiManager wifiManager = (android.net.wifi.WifiManager) context.getSystemService(Context.WIFI_SERVICE);
+            if (wifiManager != null) {
+                android.net.wifi.WifiInfo wifiInfo = wifiManager.getConnectionInfo();
+                int ipAddress = wifiInfo.getIpAddress();
+                if (ipAddress != 0) {
+                    String ip = String.format("%d.%d.%d.%d",
+                            (ipAddress & 0xff),
+                            (ipAddress >> 8 & 0xff),
+                            (ipAddress >> 16 & 0xff),
+                            (ipAddress >> 24 & 0xff));
+                    Log.d(TAG, "Found WiFi IP: " + ip);
+                    return ip;
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to get WiFi IP address", e);
+        }
+        return getDeviceIpAddress(); // 回退到通用方法
+    }
+
+    /**
+     * 获取所有网络接口的IP地址（包含WiFi优先的方式）
+     */
+    public static String getAllIpAddressesString(Context context) {
+        List<String> ipList = new ArrayList<>();
+        String wifiIp = null;
+
+        try {
+            // 首先尝试获取WiFi IP
+            android.net.wifi.WifiManager wifiManager = (android.net.wifi.WifiManager) context.getSystemService(Context.WIFI_SERVICE);
+            if (wifiManager != null && wifiManager.isWifiEnabled()) {
+                android.net.wifi.WifiInfo wifiInfo = wifiManager.getConnectionInfo();
+                int ipAddress = wifiInfo.getIpAddress();
+                if (ipAddress != 0) {
+                    wifiIp = String.format("%d.%d.%d.%d",
+                            (ipAddress & 0xff),
+                            (ipAddress >> 8 & 0xff),
+                            (ipAddress >> 16 & 0xff),
+                            (ipAddress >> 24 & 0xff));
+                    Log.d(TAG, "Found WiFi IP: " + wifiIp);
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to get WiFi IP address", e);
+        }
+
+        // 获取所有网络接口IP
+        try {
+            for (Enumeration<NetworkInterface> en = NetworkInterface.getNetworkInterfaces(); en.hasMoreElements();) {
+                NetworkInterface intf = en.nextElement();
+                // 跳过回环和未启用的接口
+                if (intf.isLoopback() || !intf.isUp()) {
+                    continue;
+                }
+
+                for (Enumeration<InetAddress> enumIpAddr = intf.getInetAddresses(); enumIpAddr.hasMoreElements();) {
+                    InetAddress inetAddress = enumIpAddr.nextElement();
+                    // 排除回环地址和链路本地地址
+                    if (!inetAddress.isLoopbackAddress() && !inetAddress.isLinkLocalAddress()) {
+                        String ip = inetAddress.getHostAddress();
+                        // 过滤IPv6地址和无效IP
+                        if (ip != null && ip.indexOf(':') < 0 && !ip.equals("0.0.0.0")) {
+                            String interfaceName = intf.getDisplayName();
+                            // 标记WiFi IP
+                            if (ip.equals(wifiIp)) {
+                                ipList.add(ip + " (WiFi)");
+                            } else {
+                                ipList.add(ip + " (" + interfaceName + ")");
+                            }
+                            Log.d(TAG, "Found device IP: " + ip + " on " + interfaceName);
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to get device IP addresses", e);
+        }
+
+        if (ipList.isEmpty()) {
+            return context.getString(R.string.no_ip_found);
+        }
+
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < ipList.size(); i++) {
+            if (i > 0) {
+                sb.append("\n");
+            }
+            sb.append(ipList.get(i));
+        }
+        return sb.toString();
+    }
+}

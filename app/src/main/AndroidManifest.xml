@@ -47,6 +47,16 @@
             </intent-filter>
         </activity>
         
+        <activity
+            android:name=".WebPreviewActivity"
+            android:exported="false"
+            android:theme="@style/Theme.PortForwarder" />
+
+        <activity
+            android:name=".TelnetActivity"
+            android:exported="false"
+            android:theme="@style/Theme.PortForwarder" />
+
         <!-- 端口转发后台服务 -->
         <service
             android:name=".PortForwarderService"

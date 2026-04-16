@@ -1,3 +1,211 @@
 <resources>
     <string name="app_name">YF端口转发</string>
+
+    <!-- Common -->
+    <string name="ok">确定</string>
+    <string name="cancel">取消</string>
+    <string name="delete">删除</string>
+    <string name="save">保存</string>
+    <string name="close">关闭</string>
+    <string name="unknown">未知</string>
+    <string name="unnamed">未命名</string>
+
+    <!-- Service status -->
+    <string name="service_running">服务运行中</string>
+    <string name="service_not_started">服务未启动</string>
+    <string name="config_count_format">%d 个配置 (%d 启用)</string>
+    <string name="ip_fetch_failed">获取失败</string>
+    <string name="no_ip_found">未找到可用IP</string>
+    <string name="unknown_ip">未知IP</string>
+
+    <!-- Notification -->
+    <string name="notification_channel_name">端口转发服务</string>
+    <string name="notification_channel_desc">保持端口转发在后台运行</string>
+    <string name="notification_running">正在运行…</string>
+    <string name="notification_no_active">无活动转发</string>
+    <string name="notification_active_count">活动转发: %d 个</string>
+
+    <!-- Service info -->
+    <string name="status_info_running">服务状态: 运行中\n</string>
+    <string name="status_info_active">活动转发: %d 个\n</string>
+    <string name="wakelock_acquired">已获取</string>
+    <string name="wakelock_not_acquired">未获取</string>
+
+    <!-- Forward status -->
+    <string name="forward_running">运行中 [%d]</string>
+    <string name="forward_stopped">已停止</string>
+
+    <!-- Permissions -->
+    <string name="permission_required">应用需要网络权限才能正常工作</string>
+
+    <!-- Config import/export -->
+    <string name="import_config">导入配置</string>
+    <string name="import_found_format">发现 %d 个有效配置。\n选择导入方式：</string>
+    <string name="import_merge">合并 (添加)</string>
+    <string name="import_replace">替换 (清空后导入)</string>
+    <string name="imported_count_format">已导入 %d 个配置</string>
+    <string name="replaced_count_format">已替换为 %d 个配置</string>
+    <string name="import_no_valid">没有有效的配置可导入</string>
+    <string name="import_failed_format">导入失败：文件格式无效</string>
+    <string name="export_success_format">导出成功 (%d 个配置)</string>
+    <string name="export_failed">导出失败</string>
+    <string name="import_default_name">导入配置</string>
+
+    <!-- Auto start -->
+    <string name="auto_start_enabled">已启用开机启动服务</string>
+    <string name="auto_start_disabled">已禁用开机启动服务</string>
+
+    <!-- Forward operations -->
+    <string name="no_active_sessions">没有活动的转发会话</string>
+    <string name="stopped_all_format">已停止所有转发会话 (%d 个)</string>
+    <string name="stop_error">停止转发时出现错误</string>
+    <string name="start_complete_format">启动完成: %d 成功, %d 失败</string>
+    <string name="start_success">启动成功: %s</string>
+    <string name="start_failed">启动失败: %s</string>
+    <string name="stopped">已停止: %s</string>
+    <string name="stop_failed">停止失败</string>
+    <string name="no_running_forward">未找到运行中的转发</string>
+
+    <!-- Error messages -->
+    <string name="error_socket_create">创建套接字失败</string>
+    <string name="error_bind_failed">绑定端口失败(端口可能被占用)</string>
+    <string name="error_listen_failed">监听端口失败</string>
+    <string name="error_dns_failed">DNS解析失败(无效主机名)</string>
+    <string name="error_unknown">未知错误 (%d)</string>
+
+    <!-- Config edit dialog -->
+    <string name="edit_config">编辑配置</string>
+    <string name="add_config">添加配置</string>
+    <string name="unnamed_config">未命名配置</string>
+    <string name="input_target_host">请输入目标主机地址</string>
+    <string name="port_range_error">端口范围应在1-65535之间</string>
+    <string name="config_updated">配置已更新</string>
+    <string name="config_added">配置已添加</string>
+    <string name="invalid_port">请输入有效的端口号</string>
+    <string name="save_failed">保存失败: %s</string>
+
+    <!-- Protocol test -->
+    <string name="testing_config">正在测试 %s…</string>
+    <string name="test_success">测试成功</string>
+    <string name="test_failed">测试失败</string>
+    <string name="detected_service">检测到服务: %s</string>
+
+    <!-- Connect menu -->
+    <string name="http_preview">HTTP 预览 (内置)</string>
+    <string name="open_in_browser">在浏览器中打开</string>
+    <string name="telnet_connect">Telnet 连接</string>
+    <string name="ssh_connect">SSH 连接</string>
+    <string name="protocol_test">协议测试</string>
+    <string name="connect_test_title">连接/测试: %s</string>
+    <string name="no_ssh_client">未安装 SSH 客户端</string>
+    <string name="ssh_client_required">需要安装 SSH 客户端（如 ConnectBot）才能使用此功能。</string>
+    <string name="go_install">去安装</string>
+
+    <!-- Settings -->
+    <string name="settings">设置</string>
+    <string name="clear_all_configs">清除所有配置</string>
+    <string name="export_configs">导出配置</string>
+    <string name="import_configs">导入配置</string>
+    <string name="about_app">关于应用</string>
+    <string name="exit_app">退出应用</string>
+    <string name="exit_confirm">确定要退出应用吗？</string>
+    <string name="exit">退出</string>
+    <string name="clear_confirm">确定要清除所有转发配置吗？此操作不可撤销。</string>
+    <string name="all_configs_cleared">所有配置已清除</string>
+    <string name="about_title">关于端口转发器</string>
+    <string name="about_message">版本: %s\n\n功能特性:\n• TCP/UDP端口转发\n• 配置保存和管理\n• 开机自动启动\n• 后台服务运行\n• 转发状态监控</string>
+
+    <!-- Delete config -->
+    <string name="delete_config">删除配置</string>
+    <string name="delete_confirm">确定要删除配置 \"%s\" 吗？</string>
+    <string name="deleted_config">已删除配置: %s</string>
+
+    <!-- LAN scan -->
+    <string name="scanning_all_networks">正在扫描所有网络链路 (多个子网)…</string>
+    <string name="found_devices_scanning">已发现 %d 个设备 (跨多个网络)，继续扫描…</string>
+    <string name="scan_progress_format">扫描进度: %.1f%% (%d/%d) - 已发现 %d 个设备</string>
+    <string name="scan_complete_format">扫描完成！共找到 %d 个设备：</string>
+    <string name="wifi_network_count">\nWiFi网络: %d个</string>
+    <string name="home_network_count">\n家庭网络: %d个</string>
+    <string name="enterprise_network_count">\n企业网络: %d个</string>
+    <string name="private_network_count">\n专用网络: %d个</string>
+    <string name="other_network_count">\n其他网络: %d个</string>
+    <string name="click_to_select_ip">\n点击设备选择IP地址</string>
+    <string name="scan_no_devices">多网络扫描完成，未发现设备。\n请确保目标设备已连接到网络</string>
+    <string name="scan_failed">扫描失败: %s</string>
+    <string name="selected_ip">已选择IP: %s</string>
+    <string name="scan_error_no_network">无法获取本地网络信息</string>
+    <string name="scan_timeout">扫描超时，已发现的设备仍然有效</string>
+
+    <!-- LAN device -->
+    <string name="device_online">在线</string>
+    <string name="device_online_ms">在线 (%dms)</string>
+    <string name="device_offline">离线</string>
+    <string name="hostname_format">主机名: %s</string>
+    <string name="hostname_unknown">主机名: 未知</string>
+
+    <!-- SmartConfig -->
+    <string name="enable_wifi_first">请先开启WiFi</string>
+    <string name="connect_wifi_first">请先连接到WiFi网络</string>
+    <string name="cannot_get_wifi_name">无法获取WiFi名称，请检查位置权限</string>
+    <string name="current_wifi">当前WiFi: %s</string>
+    <string name="mac_address_format">MAC地址: %s</string>
+    <string name="mac_address_unavailable">MAC地址: 无法获取</string>
+    <string name="smart_config_in_progress">正在配网，请稍候…</string>
+    <string name="input_wifi_password">请输入WiFi密码</string>
+    <string name="device_count_range">设备数量应在1-10之间</string>
+    <string name="invalid_device_count">请输入有效的设备数量</string>
+    <string name="smart_config_cancelled">配网已取消</string>
+    <string name="smart_config_success">配网成功！</string>
+    <string name="device_ip_mac_format">设备IP: %s\nMAC: %s</string>
+    <string name="broadcasting_config">正在广播配网信息…</string>
+    <string name="smart_config_failed">配网失败</string>
+    <string name="smart_config_failed_detail">无法连接到ESP32设备，请检查：\n1. 设备是否处于SmartConfig配网模式\n2. WiFi密码是否正确\n3. 设备是否在WiFi信号范围内\n4. 手机是否连接到2.4GHz WiFi</string>
+    <string name="smart_config_timeout">配网超时</string>
+    <string name="smart_config_timeout_detail">配网超时，未收到设备响应：\n1. 确认设备已进入SmartConfig模式\n2. 检查WiFi密码是否正确\n3. 确保设备支持当前WiFi频段</string>
+    <string name="smart_config_retry_detail">配网过程失败，请重试：\n1. 确认WiFi密码正确\n2. 确保设备处于SmartConfig配网模式\n3. 尝试重启ESP32设备后重新配网</string>
+    <string name="smart_config_success_count">配网成功！(%d个设备)</string>
+    <string name="device_result_format">设备%d: %s\nMAC: %s\n\n</string>
+    <string name="smart_config_error">配网异常</string>
+    <string name="smart_config_error_detail">配网过程出现异常: %s\n\n请尝试：\n1. 重新启动应用\n2. 检查网络权限\n3. 确认WiFi连接正常</string>
+    <string name="smart_config_start_failed">启动失败</string>
+    <string name="smart_config_start_failed_detail">启动配网失败: %s</string>
+    <string name="stop_smart_config">停止配网</string>
+    <string name="stop_smart_config_confirm">SmartConfig配网正在进行中，是否要停止？</string>
+    <string name="stop">停止</string>
+    <string name="smart_config_stopped">SmartConfig已停止</string>
+    <string name="btn_smart_config_stop">停止</string>
+    <string name="btn_smart_config_start">配网</string>
+    <string name="smart_config_success_title">配网成功</string>
+    <string name="smart_config_success_message">ESP32设备已成功连接到WiFi网络！\n\n设备IP地址: %s\n\n是否要为此设备创建端口转发配置？</string>
+    <string name="create_config">创建配置</string>
+    <string name="later">稍后再说</string>
+    <string name="wifi_error">WiFi连接异常</string>
+    <string name="wifi_error_detail">请确保WiFi已连接并重试</string>
+
+    <!-- Telnet -->
+    <string name="connecting_format">正在连接 %s:%d…\n</string>
+    <string name="connected_format">已连接: %s:%d</string>
+    <string name="connect_success">连接成功!\n\n</string>
+    <string name="connect_error">连接错误: %s\n</string>
+    <string name="disconnected">已断开</string>
+    <string name="disconnect">断开</string>
+    <string name="disconnected_message">\n已断开连接\n</string>
+    <string name="not_connected">未连接</string>
+    <string name="send_failed">发送失败: %s\n</string>
+
+    <!-- LAN Scanner network labels (used in LanScanner.java) -->
+    <string name="network_wifi">WiFi网络</string>
+    <string name="network_home">家庭网络</string>
+    <string name="network_enterprise">企业网络</string>
+    <string name="network_private">专用网络</string>
+    <string name="network_other">其他网络</string>
+
+    <!-- DeviceUtils -->
+    <string name="screen_info_format">屏幕信息 - 分辨率: %dx%d, 密度: %.2f, 对角线: %.1f英寸, 最小宽度: %ddp, 设备类型: %s</string>
+    <string name="device_tablet">平板</string>
+    <string name="device_phone">手机</string>
+
+    <!-- ESP32 default config name -->
+    <string name="esp32_device">ESP32设备</string>
 </resources>

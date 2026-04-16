@@ -43,11 +43,30 @@ public class BootReceiver extends BroadcastReceiver {
                         try {
                             Thread.sleep(3000); // 等待3秒让服务完全启动
                             
-                            List<ForwardConfig> autoStartConfigs = configManager.getAutoStartConfigs();
+                            List<ForwardConfig> configs = configManager.loadForwardConfigs();
+                            List<ForwardConfig> autoStartConfigs = new java.util.ArrayList<>();
+                            for (ForwardConfig config : configs) {
+                                if (config.enabled) {
+                                    autoStartConfigs.add(config);
+                                }
+                            }
                             Log.d(TAG, "Found " + autoStartConfigs.size() + " auto-start configs");
                             
                             for (ForwardConfig config : autoStartConfigs) {
                                 try {
+                                    // Check if forward already exists for this port
+                                    boolean alreadyRunning = false;
+                                    java.util.Map<Integer, PortForwarder.ForwardInfo> activeForwards = PortForwarder.getAllForwards();
+                                    for (PortForwarder.ForwardInfo info : activeForwards.values()) {
+                                        if (info.listenPort == config.listenPort && info.protocol == config.protocol) {
+                                            alreadyRunning = true;
+                                            break;
+                                        }
+                                    }
+                                    if (alreadyRunning) {
+                                        Log.d(TAG, "Forward already running for config: " + config.toString());
+                                        continue;
+                                    }
                                     int sessionId = PortForwarder.createForward(
                                             config.protocol,
                                             config.listenPort,

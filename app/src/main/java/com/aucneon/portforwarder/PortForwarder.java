@@ -19,6 +19,7 @@ public class PortForwarder {
     public static final int ERROR_SOCKET_CREATE = -1;
     public static final int ERROR_BIND_FAILED = -2;
     public static final int ERROR_LISTEN_FAILED = -3;
+    public static final int ERROR_DNS_FAILED = -4;
 
     // 会话信息缓存
     private static final Map<Integer, ForwardInfo> sessionInfo = new ConcurrentHashMap<>();
@@ -259,6 +260,8 @@ public class PortForwarder {
                 return "Failed to bind port (port may be in use)";
             case ERROR_LISTEN_FAILED:
                 return "Failed to listen on port";
+            case ERROR_DNS_FAILED:
+                return "DNS resolution failed (invalid hostname)";
             default:
                 return "Unknown error (" + errorCode + ")";
         }

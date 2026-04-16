@@ -13,11 +13,84 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <poll.h>
+#include <netdb.h>
+#include <cerrno>
 #include <android/log.h>
 
 #define LOG_TAG "PortForwarder"
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+
+// Helper: send all bytes, handling partial writes and EAGAIN/EWOULDBLOCK
+static ssize_t send_all(int sockfd, const char* buf, size_t len) {
+    size_t total_sent = 0;
+    while (total_sent < len) {
+        ssize_t n = send(sockfd, buf + total_sent, len - total_sent, 0);
+        if (n > 0) {
+            total_sent += n;
+        } else if (n < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                // Wait for socket to become writable
+                struct pollfd pfd;
+                pfd.fd = sockfd;
+                pfd.events = POLLOUT;
+                int ret = poll(&pfd, 1, 5000); // 5 second timeout
+                if (ret <= 0) {
+                    LOGE("send_all: poll timeout or error");
+                    return -1;
+                }
+                if (pfd.revents & (POLLERR | POLLHUP)) {
+                    LOGE("send_all: socket error during poll");
+                    return -1;
+                }
+                continue; // Retry send
+            } else {
+                LOGE("send_all: send error: %s", strerror(errno));
+                return -1;
+            }
+        } else {
+            // n == 0, shouldn't happen for stream sockets but handle it
+            return -1;
+        }
+    }
+    return (ssize_t)total_sent;
+}
+
+// Helper: resolve hostname or IP to a sockaddr_in using getaddrinfo
+// Returns 0 on success, -1 on failure. Fills out_addr.
+static int resolve_host(const std::string& host, int port, int socktype, struct sockaddr_in* out_addr) {
+    struct addrinfo hints{};
+    hints.ai_family = AF_INET;       // IPv4
+    hints.ai_socktype = socktype;    // SOCK_STREAM or SOCK_DGRAM
+
+    std::string port_str = std::to_string(port);
+    struct addrinfo* result = nullptr;
+
+    int ret = getaddrinfo(host.c_str(), port_str.c_str(), &hints, &result);
+    if (ret != 0) {
+        LOGE("resolve_host: getaddrinfo failed for %s:%d: %s", host.c_str(), port, gai_strerror(ret));
+        return -1;
+    }
+
+    if (result == nullptr) {
+        LOGE("resolve_host: no addresses found for %s:%d", host.c_str(), port);
+        return -1;
+    }
+
+    // Use the first result
+    memcpy(out_addr, result->ai_addr, sizeof(struct sockaddr_in));
+    freeaddrinfo(result);
+    return 0;
+}
+
+// Client thread entry: pairs a thread with a finished flag for cleanup
+struct ClientThreadEntry {
+    std::thread thread;
+    std::shared_ptr<std::atomic<bool>> finished;
+
+    ClientThreadEntry(std::thread t, std::shared_ptr<std::atomic<bool>> f)
+        : thread(std::move(t)), finished(std::move(f)) {}
+};
 
 // 转发会话结构
 struct ForwardSession {
@@ -29,6 +102,8 @@ struct ForwardSession {
     int listenSocket;
     std::atomic<bool> running;
     std::thread workerThread;
+    std::vector<ClientThreadEntry> clientThreads;
+    std::mutex clientThreadsMutex;
 
     ForwardSession() : running(false), listenSocket(-1) {}
 };
@@ -48,9 +123,12 @@ void handleTcpConnection(int clientSocket, const std::string& targetHost, int ta
     }
 
     struct sockaddr_in targetAddr;
-    targetAddr.sin_family = AF_INET;
-    targetAddr.sin_port = htons(targetPort);
-    inet_pton(AF_INET, targetHost.c_str(), &targetAddr.sin_addr);
+    if (resolve_host(targetHost, targetPort, SOCK_STREAM, &targetAddr) < 0) {
+        LOGE("Failed to resolve target host %s", targetHost.c_str());
+        close(clientSocket);
+        close(targetSocket);
+        return;
+    }
 
     if (connect(targetSocket, (struct sockaddr*)&targetAddr, sizeof(targetAddr)) < 0) {
         LOGE("Failed to connect to target %s:%d", targetHost.c_str(), targetPort);
@@ -82,7 +160,9 @@ void handleTcpConnection(int clientSocket, const std::string& targetHost, int ta
             if (bytes <= 0) {
                 running = false;
             } else {
-                send(targetSocket, buffer, bytes, 0);
+                if (send_all(targetSocket, buffer, bytes) < 0) {
+                    running = false;
+                }
             }
         }
 
@@ -92,7 +172,9 @@ void handleTcpConnection(int clientSocket, const std::string& targetHost, int ta
             if (bytes <= 0) {
                 running = false;
             } else {
-                send(clientSocket, buffer, bytes, 0);
+                if (send_all(clientSocket, buffer, bytes) < 0) {
+                    running = false;
+                }
             }
         }
 
@@ -136,12 +218,42 @@ void tcpForwardWorker(ForwardSession* session) {
         LOGD("New TCP connection from %s:%d",
              inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port));
 
-        // 在新线程中处理连接
-        std::thread([clientSocket, session]() {
-            handleTcpConnection(clientSocket, session->targetHost, session->targetPort);
-        }).detach();
+        // 在新线程中处理连接，存储到session中
+        {
+            std::lock_guard<std::mutex> lock(session->clientThreadsMutex);
+
+            // Periodic cleanup: join and remove finished client threads
+            for (auto it = session->clientThreads.begin(); it != session->clientThreads.end(); ) {
+                if (it->finished->load()) {
+                    if (it->thread.joinable()) {
+                        it->thread.join();
+                    }
+                    it = session->clientThreads.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+
+            auto finished = std::make_shared<std::atomic<bool>>(false);
+            std::thread t([clientSocket, session, finished]() {
+                handleTcpConnection(clientSocket, session->targetHost, session->targetPort);
+                finished->store(true);
+            });
+            session->clientThreads.emplace_back(std::move(t), finished);
+        }
     }
-    
+
+    // Join all client handler threads before exiting the worker
+    {
+        std::lock_guard<std::mutex> lock(session->clientThreadsMutex);
+        for (auto& entry : session->clientThreads) {
+            if (entry.thread.joinable()) {
+                entry.thread.join();
+            }
+        }
+        session->clientThreads.clear();
+    }
+
     LOGD("TCP forwarder stopped");
 }
 
@@ -189,24 +301,26 @@ void udpForwardWorker(ForwardSession* session) {
                     targetSocket = socket(AF_INET, SOCK_DGRAM, 0);
                     if (targetSocket >= 0) {
                         struct sockaddr_in targetAddr;
-                        targetAddr.sin_family = AF_INET;
-                        targetAddr.sin_port = htons(session->targetPort);
-                        inet_pton(AF_INET, session->targetHost.c_str(), &targetAddr.sin_addr);
-                        
-                        // 设置socket超时，避免阻塞
-                        struct timeval recvTimeout;
-                        recvTimeout.tv_sec = 1;
-                        recvTimeout.tv_usec = 0;
-                        setsockopt(targetSocket, SOL_SOCKET, SO_RCVTIMEO, &recvTimeout, sizeof(recvTimeout));
-                        
-                        // 连接到目标服务器
-                        if (connect(targetSocket, (struct sockaddr*)&targetAddr, sizeof(targetAddr)) == 0) {
-                            clientToTargetMap[clientKey] = targetSocket;
-                            isNewConnection = true;
-                            LOGD("Created new UDP connection for client %s", clientKey.c_str());
-                        } else {
+                        if (resolve_host(session->targetHost, session->targetPort, SOCK_DGRAM, &targetAddr) < 0) {
+                            LOGE("Failed to resolve target host %s for UDP", session->targetHost.c_str());
                             close(targetSocket);
                             targetSocket = -1;
+                        } else {
+                            // 设置socket超时，避免阻塞
+                            struct timeval recvTimeout;
+                            recvTimeout.tv_sec = 1;
+                            recvTimeout.tv_usec = 0;
+                            setsockopt(targetSocket, SOL_SOCKET, SO_RCVTIMEO, &recvTimeout, sizeof(recvTimeout));
+
+                            // 连接到目标服务器
+                            if (connect(targetSocket, (struct sockaddr*)&targetAddr, sizeof(targetAddr)) == 0) {
+                                clientToTargetMap[clientKey] = targetSocket;
+                                isNewConnection = true;
+                                LOGD("Created new UDP connection for client %s", clientKey.c_str());
+                            } else {
+                                close(targetSocket);
+                                targetSocket = -1;
+                            }
                         }
                     }
                 }
@@ -292,6 +406,17 @@ Java_com_aucneon_portforwarder_PortForwarder_nativeCreateForward(
     session->targetHost = std::string(host);
     session->targetPort = targetPort;
     session->running = false;
+
+    // Validate that the target host can be resolved
+    {
+        struct sockaddr_in testAddr;
+        int socktype = (protocol == 0) ? SOCK_STREAM : SOCK_DGRAM;
+        if (resolve_host(session->targetHost, targetPort, socktype, &testAddr) < 0) {
+            env->ReleaseStringUTFChars(targetHost, host);
+            LOGE("Failed to resolve target host: %s", session->targetHost.c_str());
+            return -4;
+        }
+    }
 
     // 创建监听socket
     int socketType = (protocol == 0) ? SOCK_STREAM : SOCK_DGRAM;

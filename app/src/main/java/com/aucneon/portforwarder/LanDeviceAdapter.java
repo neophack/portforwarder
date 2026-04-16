@@ -98,22 +98,22 @@ public class LanDeviceAdapter extends RecyclerView.Adapter<LanDeviceAdapter.View
             
             // 设置状态
             if (device.isReachable) {
-                tvDeviceStatus.setText("在线");
+                tvDeviceStatus.setText(context.getString(R.string.device_online));
                 tvDeviceStatus.setBackgroundResource(R.drawable.button_start_small);
                 if (device.responseTime > 0) {
-                    tvDeviceStatus.setText(String.format("在线 (%dms)", device.responseTime));
+                    tvDeviceStatus.setText(context.getString(R.string.device_online_ms, device.responseTime));
                 }
             } else {
-                tvDeviceStatus.setText("离线");
+                tvDeviceStatus.setText(context.getString(R.string.device_offline));
                 tvDeviceStatus.setBackgroundResource(R.drawable.button_stop_small);
             }
             
             // 设置主机名
             if (device.hostname != null && !device.hostname.equals("未知") && !device.hostname.isEmpty()) {
-                tvDeviceHostname.setText("主机名: " + device.hostname);
+                tvDeviceHostname.setText(context.getString(R.string.hostname_format, device.hostname));
                 tvDeviceHostname.setVisibility(View.VISIBLE);
             } else {
-                tvDeviceHostname.setText("主机名: 未知");
+                tvDeviceHostname.setText(context.getString(R.string.hostname_unknown));
                 tvDeviceHostname.setVisibility(View.VISIBLE);
             }
             

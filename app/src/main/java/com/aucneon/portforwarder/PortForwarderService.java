@@ -66,7 +66,7 @@ public class PortForwarderService extends Service {
         // 获取WakeLock防止CPU休眠
         if (wakeLock != null && !wakeLock.isHeld()) {
             try {
-                wakeLock.acquire();
+                wakeLock.acquire(10 * 60 * 1000L);
             } catch (Exception e) {
                 Log.e(TAG, "Failed to acquire wake lock", e);
             }
@@ -99,7 +99,11 @@ public class PortForwarderService extends Service {
         }
 
         // 停止前台服务
-        stopForeground(true);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(Service.STOP_FOREGROUND_REMOVE);
+        } else {
+            stopForeground(true);
+        }
     }
 
     /**
@@ -109,10 +113,10 @@ public class PortForwarderService extends Service {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
                     CHANNEL_ID,
-                    "端口转发服务",
+                    getString(R.string.notification_channel_name),
                     NotificationManager.IMPORTANCE_LOW
             );
-            channel.setDescription("保持端口转发在后台运行");
+            channel.setDescription(getString(R.string.notification_channel_desc));
             channel.setShowBadge(false);
             channel.setSound(null, null);
 
@@ -131,8 +135,8 @@ public class PortForwarderService extends Service {
 
         try {
             return new NotificationCompat.Builder(this, CHANNEL_ID)
-                    .setContentTitle("端口转发服务")
-                    .setContentText("正在运行...")
+                    .setContentTitle(getString(R.string.notification_channel_name))
+                    .setContentText(getString(R.string.notification_running))
                     .setSmallIcon(R.drawable.ic_notification)
                     .setContentIntent(pendingIntent)
                     .setOngoing(true)
@@ -144,8 +148,8 @@ public class PortForwarderService extends Service {
             Log.e(TAG, "Failed to create notification", e);
             // 创建一个简单的后备通知
             return new NotificationCompat.Builder(this, CHANNEL_ID)
-                    .setContentTitle("端口转发服务")
-                    .setContentText("正在运行...")
+                    .setContentTitle(getString(R.string.notification_channel_name))
+                    .setContentText(getString(R.string.notification_running))
                     .setSmallIcon(android.R.drawable.ic_dialog_info)
                     .setOngoing(true)
                     .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -168,9 +172,9 @@ public class PortForwarderService extends Service {
 
         String contentText;
         if (activeCount == 0) {
-            contentText = "无活动转发";
+            contentText = getString(R.string.notification_no_active);
         } else {
-            contentText = "活动转发: " + activeCount + " 个";
+            contentText = getString(R.string.notification_active_count, activeCount);
         }
 
         Intent intent = new Intent(this, MainActivity.class);
@@ -179,7 +183,7 @@ public class PortForwarderService extends Service {
 
         try {
             Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                    .setContentTitle("端口转发服务")
+                    .setContentTitle(getString(R.string.notification_channel_name))
                     .setContentText(contentText)
                     .setSmallIcon(R.drawable.ic_notification)
                     .setContentIntent(pendingIntent)
@@ -221,9 +225,9 @@ public class PortForwarderService extends Service {
         Map<Integer, PortForwarder.ForwardInfo> forwards = PortForwarder.getAllForwards();
         StringBuilder info = new StringBuilder();
 
-        info.append("服务状态: 运行中\n");
-        info.append("活动转发: ").append(forwards.size()).append(" 个\n");
-        info.append("WakeLock: ").append(wakeLock.isHeld() ? "已获取" : "未获取").append("\n");
+        info.append(getString(R.string.status_info_running));
+        info.append(getString(R.string.status_info_active, forwards.size()));
+        info.append("WakeLock: ").append((wakeLock != null && wakeLock.isHeld()) ? getString(R.string.wakelock_acquired) : getString(R.string.wakelock_not_acquired)).append("\n");
 
         return info.toString();
     }

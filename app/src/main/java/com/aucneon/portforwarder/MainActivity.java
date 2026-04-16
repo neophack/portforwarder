@@ -12,6 +12,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiInfo;
 import android.os.Build;
@@ -77,15 +78,6 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
     private PortForwarderService portForwarderService;
     private boolean isServiceBound = false;
 
-    // 旧的UI组件（保留向后兼容）
-    private EditText etListenPort;
-    private EditText etTargetHost;
-    private EditText etTargetPort;
-    private RadioGroup rgProtocol;
-    private Button btnStart;
-    private Button btnStop;
-    private Button btnStopAll;
-    private TextView tvStatus;
 
     private ServiceConnection serviceConnection = new ServiceConnection() {
         @Override
@@ -158,6 +150,7 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
         forwardConfigs = new ArrayList<>();
         forwardAdapter = new ForwardAdapter(this, forwardConfigs);
         forwardAdapter.setOnConfigActionListener(this);
+        forwardAdapter.setOnItemLongClickListener(config -> connectConfig(config));
         
         rvForwardConfigs.setLayoutManager(new LinearLayoutManager(this));
         rvForwardConfigs.setAdapter(forwardAdapter);
@@ -220,7 +213,58 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
             }
             
             if (!allGranted) {
-                showToast("应用需要网络权限才能正常工作");
+                showToast(getString(R.string.permission_required));
+            }
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (resultCode != RESULT_OK || data == null) return;
+
+        Uri uri = data.getData();
+        if (uri == null) return;
+
+        if (requestCode == ConfigExporter.REQUEST_EXPORT) {
+            List<ForwardConfig> configs = configManager.loadForwardConfigs();
+            boolean success = ConfigExporter.exportToUri(this, uri, configs);
+            showToast(success ? getString(R.string.export_success_format, configs.size()) : getString(R.string.export_failed));
+        } else if (requestCode == ConfigExporter.REQUEST_IMPORT) {
+            List<ForwardConfig> imported = ConfigExporter.importFromUri(this, uri);
+            if (imported != null) {
+                List<ForwardConfig> valid = ConfigExporter.validateConfigs(imported);
+                if (valid.isEmpty()) {
+                    showToast(getString(R.string.import_no_valid));
+                    return;
+                }
+                // Show import confirmation dialog
+                new AlertDialog.Builder(this)
+                        .setTitle(getString(R.string.import_config))
+                        .setMessage(getString(R.string.import_found_format, valid.size()))
+                        .setPositiveButton(getString(R.string.import_merge), (d, w) -> {
+                            for (ForwardConfig config : valid) {
+                                config.id = 0; // Reset ID for new generation
+                                configManager.addForwardConfig(config);
+                            }
+                            loadConfigs();
+                            showToast(getString(R.string.imported_count_format, valid.size()));
+                        })
+                        .setNegativeButton(getString(R.string.import_replace), (d, w) -> {
+                            PortForwarder.stopAllForwards();
+                            configManager.clearAllConfigs();
+                            for (ForwardConfig config : valid) {
+                                config.id = 0;
+                                configManager.addForwardConfig(config);
+                            }
+                            loadConfigs();
+                            showToast(getString(R.string.replaced_count_format, valid.size()));
+                        })
+                        .setNeutralButton(getString(R.string.cancel), null)
+                        .show();
+            } else {
+                showToast(getString(R.string.import_failed_format));
             }
         }
     }
@@ -250,98 +294,8 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
         // 自动启动服务开关
         swAutoStartService.setOnCheckedChangeListener((buttonView, isChecked) -> {
             configManager.setAutoStartService(isChecked);
-            showToast(isChecked ? "已启用开机启动服务" : "已禁用开机启动服务");
+            showToast(isChecked ? getString(R.string.auto_start_enabled) : getString(R.string.auto_start_disabled));
         });
-    }
-
-    private void startForward() {
-        try {
-            String listenPortStr = etListenPort.getText().toString().trim();
-            String targetHost = etTargetHost.getText().toString().trim();
-            String targetPortStr = etTargetPort.getText().toString().trim();
-
-            // 输入验证
-            if (listenPortStr.isEmpty()) {
-                showToast("请输入监听端口");
-                etListenPort.requestFocus();
-                return;
-            }
-
-            if (targetHost.isEmpty()) {
-                showToast("请输入目标主机地址");
-                etTargetHost.requestFocus();
-                return;
-            }
-
-            if (targetPortStr.isEmpty()) {
-                showToast("请输入目标端口");
-                etTargetPort.requestFocus();
-                return;
-            }
-
-            int listenPort = Integer.parseInt(listenPortStr);
-            int targetPort = Integer.parseInt(targetPortStr);
-
-            // 端口范围验证
-            if (listenPort < 1024 || listenPort > 65535) {
-                showToast("监听端口范围应在1024-65535之间");
-                etListenPort.requestFocus();
-                return;
-            }
-
-            if (targetPort < 1 || targetPort > 65535) {
-                showToast("目标端口范围应在1-65535之间");
-                etTargetPort.requestFocus();
-                return;
-            }
-
-            // 主机名验证（简单检查）
-            if (!isValidHost(targetHost)) {
-                showToast("请输入有效的主机地址或IP");
-                etTargetHost.requestFocus();
-                return;
-            }
-
-            // 检查端口是否可用
-            if (!PortForwarder.isPortAvailable(listenPort)) {
-                showToast("端口 " + listenPort + " 不可用或已被使用");
-                etListenPort.requestFocus();
-                return;
-            }
-
-            // 获取选择的协议
-            int protocol = (rgProtocol.getCheckedRadioButtonId() == R.id.rb_tcp) ?
-                    PortForwarder.PROTOCOL_TCP : PortForwarder.PROTOCOL_UDP;
-
-            // 禁用开始按钮，防止重复点击
-            btnStart.setEnabled(false);
-
-            int sessionId = PortForwarder.createForward(protocol, listenPort, targetHost, targetPort);
-
-            if (sessionId > 0) {
-                String protocolName = (protocol == PortForwarder.PROTOCOL_TCP) ? "TCP" : "UDP";
-                showToast(String.format("成功创建%s转发 [%d]: %d -> %s:%d",
-                        protocolName, sessionId, listenPort, targetHost, targetPort));
-                updateStatus();
-                
-                // 清空输入框
-                etListenPort.setText("");
-                etTargetHost.setText("");
-                etTargetPort.setText("");
-            } else {
-                showToast("创建端口转发失败: " + getErrorMessage(sessionId));
-            }
-
-        } catch (NumberFormatException e) {
-            showToast("请输入有效的端口号");
-            Log.e(TAG, "Invalid port number", e);
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to start forward", e);
-            showToast("启动转发失败: " + e.getMessage());
-        } finally {
-            // 重新启用开始按钮
-            btnStart.setEnabled(true);
-        }
     }
 
     private boolean isValidHost(String host) {
@@ -367,40 +321,10 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
                host.matches("^[a-zA-Z0-9.-]+$");
     }
 
-    private void stopLatestForward() {
-        Map<Integer, PortForwarder.ForwardInfo> forwards = PortForwarder.getAllForwards();
-        if (forwards.isEmpty()) {
-            showToast("没有活动的转发会话");
-            return;
-        }
-
-        // 找到最新创建的会话
-        int latestSessionId = -1;
-        long latestTime = 0;
-        for (PortForwarder.ForwardInfo info : forwards.values()) {
-            if (info.createTime > latestTime) {
-                latestTime = info.createTime;
-                latestSessionId = info.sessionId;
-            }
-        }
-
-        if (latestSessionId > 0) {
-            PortForwarder.ForwardInfo info = forwards.get(latestSessionId);
-            boolean success = PortForwarder.stopForward(latestSessionId);
-            if (success && info != null) {
-                showToast(String.format("已停止转发 [%d]: %d -> %s:%d",
-                        latestSessionId, info.listenPort, info.targetHost, info.targetPort));
-                updateStatus();
-            } else {
-                showToast("停止转发失败");
-            }
-        }
-    }
-
     private void stopAllForwards() {
         int count = PortForwarder.getActiveSessionCount();
         if (count == 0) {
-            showToast("没有活动的转发会话");
+            showToast(getString(R.string.no_active_sessions));
             return;
         }
 
@@ -413,8 +337,8 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
                 runOnUiThread(() -> {
                     // 检查Activity是否仍然有效
                     if (!isDestroyed() && !isFinishing()) {
-                        showToast("已停止所有转发会话 (" + count + " 个)");
-                        updateStatus();
+                        showToast(getString(R.string.stopped_all_format, count));
+                        refreshStatus();
                     }
                 });
             } catch (Exception e) {
@@ -422,35 +346,11 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
                 runOnUiThread(() -> {
                     // 检查Activity是否仍然有效
                     if (!isDestroyed() && !isFinishing()) {
-                        showToast("停止转发时出现错误");
+                        showToast(getString(R.string.stop_error));
                     }
                 });
             }
         }).start();
-    }
-
-    private void updateStatus() {
-        // 检查Activity是否仍然有效
-        if (isDestroyed() || isFinishing() || tvStatus == null) {
-            return;
-        }
-        
-        Map<Integer, PortForwarder.ForwardInfo> forwards = PortForwarder.getAllForwards();
-        StringBuilder status = new StringBuilder();
-
-        status.append("活动转发会话: ").append(forwards.size()).append("\n\n");
-
-        if (forwards.isEmpty()) {
-            status.append("无活动转发");
-        } else {
-            for (PortForwarder.ForwardInfo info : forwards.values()) {
-                status.append(info.toString()).append("\n");
-                status.append("创建时间: ").append(formatTime(info.createTime)).append("\n");
-                status.append("状态: ").append(PortForwarder.isRunning(info.sessionId) ? "运行中" : "已停止").append("\n\n");
-            }
-        }
-
-        tvStatus.setText(status.toString());
     }
 
     private String formatTime(long timestamp) {
@@ -466,13 +366,15 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
     private String getErrorMessage(int errorCode) {
         switch (errorCode) {
             case PortForwarder.ERROR_SOCKET_CREATE:
-                return "创建套接字失败";
+                return getString(R.string.error_socket_create);
             case PortForwarder.ERROR_BIND_FAILED:
-                return "绑定端口失败(端口可能被占用)";
+                return getString(R.string.error_bind_failed);
             case PortForwarder.ERROR_LISTEN_FAILED:
-                return "监听端口失败";
+                return getString(R.string.error_listen_failed);
+            case PortForwarder.ERROR_DNS_FAILED:
+                return getString(R.string.error_dns_failed);
             default:
-                return "未知错误 (" + errorCode + ")";
+                return getString(R.string.error_unknown, errorCode);
         }
     }
 
@@ -485,20 +387,6 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
             updateHandler.removeCallbacks(updateRunnable);
             updateHandler = null;
             updateRunnable = null;
-        }
-        
-        // 异步停止所有转发，避免阻塞主线程
-        try {
-            new Thread(() -> {
-                try {
-                    PortForwarder.stopAllForwards();
-                    Log.d(TAG, "All forwards stopped on destroy");
-                } catch (Exception e) {
-                    Log.e(TAG, "Error stopping forwards on destroy", e);
-                }
-            }).start();
-        } catch (Exception e) {
-            Log.e(TAG, "Error creating stop thread", e);
         }
         
         // 停止SmartConfig任务
@@ -568,7 +456,7 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
             
             // 检查forwardAdapter是否仍然有效
             if (forwardAdapter != null) {
-                forwardAdapter.notifyDataSetChanged();
+                forwardAdapter.notifyItemRangeChanged(0, forwardAdapter.getItemCount(), "status");
             }
             
             // 更新服务通知
@@ -588,11 +476,11 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
         }
         
         if (isServiceBound && portForwarderService != null) {
-            tvServiceStatus.setText("服务运行中");
-            tvServiceStatus.setBackgroundColor(getResources().getColor(android.R.color.holo_green_dark));
+            tvServiceStatus.setText(getString(R.string.service_running));
+            tvServiceStatus.setBackgroundColor(ContextCompat.getColor(this, android.R.color.holo_green_dark));
         } else {
-            tvServiceStatus.setText("服务未启动");
-            tvServiceStatus.setBackgroundColor(getResources().getColor(android.R.color.holo_red_dark));
+            tvServiceStatus.setText(getString(R.string.service_not_started));
+            tvServiceStatus.setBackgroundColor(ContextCompat.getColor(this, android.R.color.holo_red_dark));
         }
     }
 
@@ -608,7 +496,7 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
         for (ForwardConfig config : forwardConfigs) {
             if (config.enabled) enabled++;
         }
-        tvConfigCount.setText(String.format("%d 个配置 (%d 启用)", total, enabled));
+        tvConfigCount.setText(getString(R.string.config_count_format, total, enabled));
     }
 
     // 新增方法：更新活动转发数量
@@ -644,7 +532,7 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
         
         // 在后台线程获取IP地址
         new Thread(() -> {
-            String allIps = configManager.getAllIpAddressesString(this);
+            String allIps = NetworkUtils.getAllIpAddressesString(this);
             
             // 在主线程更新UI
             runOnUiThread(() -> {
@@ -652,12 +540,12 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
                     return;
                 }
                 
-                if (allIps != null && !allIps.equals("未找到可用IP")) {
+                if (allIps != null && !allIps.equals(getString(R.string.no_ip_found))) {
                     tvDeviceIp.setText(allIps);
-                    tvDeviceIp.setTextColor(getResources().getColor(android.R.color.holo_blue_dark));
+                    tvDeviceIp.setTextColor(ContextCompat.getColor(this, android.R.color.holo_blue_dark));
                 } else {
-                    tvDeviceIp.setText("获取失败");
-                    tvDeviceIp.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+                    tvDeviceIp.setText(getString(R.string.ip_fetch_failed));
+                    tvDeviceIp.setTextColor(ContextCompat.getColor(this, android.R.color.holo_red_dark));
                 }
                 Log.d(TAG, "Device IPs updated: " + allIps);
             });
@@ -700,7 +588,7 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
             }
         }
 
-        showToast(String.format("启动完成: %d 成功, %d 失败", startedCount, failedCount));
+        showToast(getString(R.string.start_complete_format, startedCount, failedCount));
         refreshStatus();
     }
 
@@ -731,7 +619,7 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
         }
 
         AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle(config != null ? "编辑配置" : "添加配置")
+                .setTitle(config != null ? getString(R.string.edit_config) : getString(R.string.add_config))
                 .setView(dialogView)
                 .create();
 
@@ -750,7 +638,7 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
         dialogView.findViewById(R.id.btn_save).setOnClickListener(v -> {
             try {
                 String name = etConfigName.getText().toString().trim();
-                if (name.isEmpty()) name = "未命名配置";
+                if (name.isEmpty()) name = getString(R.string.unnamed_config);
 
                 int protocol = (rgProtocolEdit.getCheckedRadioButtonId() == R.id.rb_tcp_edit) ?
                         PortForwarder.PROTOCOL_TCP : PortForwarder.PROTOCOL_UDP;
@@ -760,12 +648,12 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
 
                 // 验证输入
                 if (targetHost.isEmpty()) {
-                    showToast("请输入目标主机地址");
+                    showToast(getString(R.string.input_target_host));
                     return;
                 }
 
                 if (listenPort < 1 || listenPort > 65535 || targetPort < 1 || targetPort > 65535) {
-                    showToast("端口范围应在1-65535之间");
+                    showToast(getString(R.string.port_range_error));
                     return;
                 }
 
@@ -791,12 +679,12 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
 
                 loadConfigs();
                 dialog.dismiss();
-                showToast(config != null ? "配置已更新" : "配置已添加");
+                showToast(config != null ? getString(R.string.config_updated) : getString(R.string.config_added));
 
             } catch (NumberFormatException e) {
-                showToast("请输入有效的端口号");
+                showToast(getString(R.string.invalid_port));
             } catch (Exception e) {
-                showToast("保存失败: " + e.getMessage());
+                showToast(getString(R.string.save_failed, e.getMessage()));
                 Log.e(TAG, "Failed to save config", e);
             }
         });
@@ -807,40 +695,126 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
         dialog.show();
     }
 
+    // 新增方法：测试配置连通性
+    private void testConfig(ForwardConfig config) {
+        showToast(getString(R.string.testing_config, config.name));
+        ProtocolTester.testConfig(config, (cfg, result) -> {
+            String message = cfg.name + ": " + result.message;
+            if (result.detectedService != null) {
+                message += "\n" + getString(R.string.detected_service, result.detectedService);
+            }
+            new AlertDialog.Builder(this)
+                    .setTitle(result.success ? getString(R.string.test_success) : getString(R.string.test_failed))
+                    .setMessage(message)
+                    .setPositiveButton(getString(R.string.ok), null)
+                    .show();
+        });
+    }
+
+    // 新增方法：连接配置（提供多种连接方式）
+    private void connectConfig(ForwardConfig config) {
+        // Determine available connection types
+        List<String> options = new ArrayList<>();
+        List<Runnable> actions = new ArrayList<>();
+
+        if (ProtocolTester.isHttpService(config)) {
+            options.add(getString(R.string.http_preview));
+            actions.add(() -> WebPreviewActivity.launch(this, config));
+            options.add(getString(R.string.open_in_browser));
+            actions.add(() -> WebPreviewActivity.openInBrowser(this, config));
+        }
+
+        if (ProtocolTester.isTelnetService(config)) {
+            options.add(getString(R.string.telnet_connect));
+            actions.add(() -> TelnetActivity.launch(this, config));
+        }
+
+        if (ProtocolTester.isSshService(config)) {
+            options.add(getString(R.string.ssh_connect));
+            actions.add(() -> {
+                if (SshLauncher.isSshClientAvailable(this)) {
+                    SshLauncher.launchSsh(this, config, null);
+                } else {
+                    new AlertDialog.Builder(this)
+                            .setTitle(getString(R.string.no_ssh_client))
+                            .setMessage(getString(R.string.ssh_client_required))
+                            .setPositiveButton(getString(R.string.go_install), (d, w) -> SshLauncher.openPlayStoreForSshClient(this))
+                            .setNegativeButton(getString(R.string.cancel), null)
+                            .show();
+                }
+            });
+        }
+
+        // Always offer Telnet as a generic option for TCP
+        if (config.protocol == PortForwarder.PROTOCOL_TCP && !ProtocolTester.isTelnetService(config)) {
+            options.add(getString(R.string.telnet_connect));
+            actions.add(() -> TelnetActivity.launch(this, config));
+        }
+
+        // Always offer protocol test
+        options.add(getString(R.string.protocol_test));
+        actions.add(() -> testConfig(config));
+
+        if (options.size() == 1) {
+            // Only test available, just run it
+            actions.get(0).run();
+        } else {
+            String[] items = options.toArray(new String[0]);
+            new AlertDialog.Builder(this)
+                    .setTitle(getString(R.string.connect_test_title, config.name))
+                    .setItems(items, (d, which) -> actions.get(which).run())
+                    .setNegativeButton(getString(R.string.cancel), null)
+                    .show();
+        }
+    }
+
     // 新增方法：显示设置对话框
     private void showSettingsDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("设置");
+        builder.setTitle(getString(R.string.settings));
         
-        String[] options = {"清除所有配置", "导出配置", "导入配置", "关于应用", "退出应用"};
+        String[] options = {getString(R.string.clear_all_configs), getString(R.string.export_configs), getString(R.string.import_configs), getString(R.string.about_app), getString(R.string.exit_app)};
         builder.setItems(options, (dialog, which) -> {
             switch (which) {
                 case 0:
                     showClearConfigsDialog();
                     break;
                 case 1:
-                    showToast("导出功能待实现");
+                    ConfigExporter.startExport(MainActivity.this);
                     break;
                 case 2:
-                    showToast("导入功能待实现");
+                    ConfigExporter.startImport(MainActivity.this);
                     break;
                 case 3:
                     showAboutDialog();
                     break;
                 case 4:
-                    // 退出应用，使用 finishAffinity 以关闭所有 Activity，随后调用 System.exit(0) 彻底结束进程
+                    // 退出应用：先停止所有转发，再停止服务，最后关闭所有 Activity
                     AlertDialog exitDialog = new AlertDialog.Builder(this)
-                            .setTitle("退出应用")
-                            .setMessage("确定要退出应用吗？")
-                            .setPositiveButton("退出", (d, w) -> {
-                                try {
-                                    finishAffinity();
-                                    System.exit(0);
-                                } catch (Exception e) {
-                                    Log.e(TAG, "Error while exiting app", e);
-                                }
+                            .setTitle(getString(R.string.exit_app))
+                            .setMessage(getString(R.string.exit_confirm))
+                            .setPositiveButton(getString(R.string.exit), (d, w) -> {
+                                // Stop all forwards
+                                new Thread(() -> {
+                                    PortForwarder.stopAllForwards();
+                                    runOnUiThread(() -> {
+                                        // Stop the service
+                                        Intent serviceIntent = new Intent(MainActivity.this, PortForwarderService.class);
+                                        stopService(serviceIntent);
+                                        // Unbind
+                                        if (isServiceBound) {
+                                            try {
+                                                unbindService(serviceConnection);
+                                                isServiceBound = false;
+                                            } catch (Exception e) {
+                                                Log.e(TAG, "Error unbinding service", e);
+                                            }
+                                        }
+                                        finishAffinity();
+                                    });
+                                }).start();
                             })
-                            .setNegativeButton("取消", null)
+                            .setNegativeButton(getString(R.string.cancel), null)
                             .create();
 
                     // 在显示后修改按钮文字颜色，确保在不同主题下可见
@@ -862,24 +836,24 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
     // 新增方法：显示清除配置确认对话框
     private void showClearConfigsDialog() {
         new AlertDialog.Builder(this)
-                .setTitle("清除所有配置")
-                .setMessage("确定要清除所有转发配置吗？此操作不可撤销。")
-                .setPositiveButton("确定", (dialog, which) -> {
+                .setTitle(getString(R.string.clear_all_configs))
+                .setMessage(getString(R.string.clear_confirm))
+                .setPositiveButton(getString(R.string.ok), (dialog, which) -> {
                     PortForwarder.stopAllForwards();
                     configManager.clearAllConfigs();
                     loadConfigs();
-                    showToast("所有配置已清除");
+                    showToast(getString(R.string.all_configs_cleared));
                 })
-                .setNegativeButton("取消", null)
+                .setNegativeButton(getString(R.string.cancel), null)
                 .show();
     }
 
     // 新增方法：显示关于对话框
     private void showAboutDialog() {
         new AlertDialog.Builder(this)
-                .setTitle("关于端口转发器")
-                .setMessage("版本: 2.0\n\n功能特性:\n• TCP/UDP端口转发\n• 配置保存和管理\n• 开机自动启动\n• 后台服务运行\n• 转发状态监控")
-                .setPositiveButton("确定", null)
+                .setTitle(getString(R.string.about_title))
+                .setMessage(getString(R.string.about_message, "3.0"))
+                .setPositiveButton(getString(R.string.ok), null)
                 .show();
     }
 
@@ -911,13 +885,13 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
             );
 
             if (sessionId > 0) {
-                showToast("启动成功: " + config.name);
+                showToast(getString(R.string.start_success, config.name));
                 refreshStatus();
             } else {
-                showToast("启动失败: " + getErrorMessage(sessionId));
+                showToast(getString(R.string.start_failed, getErrorMessage(sessionId)));
             }
         } catch (Exception e) {
-            showToast("启动失败: " + e.getMessage());
+            showToast(getString(R.string.start_failed, e.getMessage()));
             Log.e(TAG, "Failed to start config", e);
         }
     }
@@ -933,13 +907,13 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
         if (info != null) {
             boolean success = PortForwarder.stopForward(info.sessionId);
             if (success) {
-                showToast("已停止: " + config.name);
+                showToast(getString(R.string.stopped, config.name));
                 refreshStatus();
             } else {
-                showToast("停止失败");
+                showToast(getString(R.string.stop_failed));
             }
         } else {
-            showToast("未找到运行中的转发");
+            showToast(getString(R.string.no_running_forward));
         }
     }
 
@@ -961,18 +935,18 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
         }
         
         new AlertDialog.Builder(this)
-                .setTitle("删除配置")
-                .setMessage("确定要删除配置 \"" + config.name + "\" 吗？")
-                .setPositiveButton("删除", (dialog, which) -> {
+                .setTitle(getString(R.string.delete_config))
+                .setMessage(getString(R.string.delete_confirm, config.name))
+                .setPositiveButton(getString(R.string.delete), (dialog, which) -> {
                     // 先停止相关转发
                     onStopConfig(config);
                     
                     // 删除配置
                     configManager.deleteForwardConfig(config.id);
                     loadConfigs();
-                    showToast("已删除配置: " + config.name);
+                    showToast(getString(R.string.deleted_config, config.name));
                 })
-                .setNegativeButton("取消", null)
+                .setNegativeButton(getString(R.string.cancel), null)
                 .show();
     }
 
@@ -1005,28 +979,6 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
         updateConfigCount();
     }
 
-    // 演示批量创建转发的方法
-    private void createBatchForwards() {
-        Object[][] forwardConfigs = {
-                {PortForwarder.PROTOCOL_TCP, 8081, "161.0.0.2", 8081},
-                {PortForwarder.PROTOCOL_TCP, 8023, "161.0.0.2", 23},
-                {PortForwarder.PROTOCOL_TCP, 5022, "161.0.0.2", 22},
-                {PortForwarder.PROTOCOL_TCP, 3306, "database.example.com", 3306}
-        };
-
-        int[] sessionIds = PortForwarder.createMultipleForwards(forwardConfigs);
-
-        int successCount = 0;
-        for (int sessionId : sessionIds) {
-            if (sessionId > 0) {
-                successCount++;
-            }
-        }
-
-        showToast("批量创建完成: " + successCount + "/" + forwardConfigs.length + " 个成功");
-        refreshStatus();
-    }
-
     // 新增方法：显示局域网扫描对话框
     private void showLanScanDialog(EditText targetHostEdit) {
         View dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_lan_scanner, null);
@@ -1056,7 +1008,7 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
             @Override
             public void onScanStarted() {
                 runOnUiThread(() -> {
-                    tvScanStatus.setText("正在扫描所有网络链路 (多个子网)...");
+                    tvScanStatus.setText(getString(R.string.scanning_all_networks));
                     pbScanning.setVisibility(View.VISIBLE);
                     btnRescan.setEnabled(false);
                     devices.clear();
@@ -1068,7 +1020,7 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
             public void onDeviceFound(LanDevice device) {
                 runOnUiThread(() -> {
                     deviceAdapter.addDevice(device);
-                    tvScanStatus.setText(String.format("已发现 %d 个设备 (跨多个网络)，继续扫描...", devices.size()));
+                    tvScanStatus.setText(getString(R.string.found_devices_scanning, devices.size()));
                 });
             }
 
@@ -1076,7 +1028,7 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
             public void onScanProgress(int current, int total) {
                 runOnUiThread(() -> {
                     double progress = (double) current / total * 100;
-                    tvScanStatus.setText(String.format("扫描进度: %.1f%% (%d/%d) - 已发现 %d 个设备", 
+                    tvScanStatus.setText(getString(R.string.scan_progress_format,
                             progress, current, total, devices.size()));
                 });
             }
@@ -1091,13 +1043,13 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
                         // 统计不同网络的设备数量
                         int wifiDevices = 0, homeDevices = 0, enterpriseDevices = 0, privateDevices = 0, otherDevices = 0;
                         for (LanDevice device : allDevices) {
-                            if (device.hostname.contains("[WiFi网络]")) {
+                            if (device.hostname.contains("[" + getString(R.string.network_wifi) + "]")) {
                                 wifiDevices++;
-                            } else if (device.hostname.contains("[家庭网络]")) {
+                            } else if (device.hostname.contains("[" + getString(R.string.network_home) + "]")) {
                                 homeDevices++;
-                            } else if (device.hostname.contains("[企业网络]")) {
+                            } else if (device.hostname.contains("[" + getString(R.string.network_enterprise) + "]")) {
                                 enterpriseDevices++;
-                            } else if (device.hostname.contains("[专用网络]")) {
+                            } else if (device.hostname.contains("[" + getString(R.string.network_private) + "]")) {
                                 privateDevices++;
                             } else {
                                 otherDevices++;
@@ -1105,17 +1057,17 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
                         }
                         
                         StringBuilder statusText = new StringBuilder();
-                        statusText.append(String.format("扫描完成！共找到 %d 个设备：", allDevices.size()));
-                        if (wifiDevices > 0) statusText.append(String.format("\nWiFi网络: %d个", wifiDevices));
-                        if (homeDevices > 0) statusText.append(String.format("\n家庭网络: %d个", homeDevices));
-                        if (enterpriseDevices > 0) statusText.append(String.format("\n企业网络: %d个", enterpriseDevices));
-                        if (privateDevices > 0) statusText.append(String.format("\n专用网络: %d个", privateDevices));
-                        if (otherDevices > 0) statusText.append(String.format("\n其他网络: %d个", otherDevices));
-                        statusText.append("\n点击设备选择IP地址");
+                        statusText.append(getString(R.string.scan_complete_format, allDevices.size()));
+                        if (wifiDevices > 0) statusText.append(getString(R.string.wifi_network_count, wifiDevices));
+                        if (homeDevices > 0) statusText.append(getString(R.string.home_network_count, homeDevices));
+                        if (enterpriseDevices > 0) statusText.append(getString(R.string.enterprise_network_count, enterpriseDevices));
+                        if (privateDevices > 0) statusText.append(getString(R.string.private_network_count, privateDevices));
+                        if (otherDevices > 0) statusText.append(getString(R.string.other_network_count, otherDevices));
+                        statusText.append(getString(R.string.click_to_select_ip));
                         
                         tvScanStatus.setText(statusText.toString());
                     } else {
-                        tvScanStatus.setText("多网络扫描完成，未发现设备。\n请确保目标设备已连接到网络");
+                        tvScanStatus.setText(getString(R.string.scan_no_devices));
                     }
                 });
             }
@@ -1125,8 +1077,8 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
                 runOnUiThread(() -> {
                     pbScanning.setVisibility(View.GONE);
                     btnRescan.setEnabled(true);
-                    tvScanStatus.setText("扫描失败: " + error);
-                    showToast("扫描失败: " + error);
+                    tvScanStatus.setText(getString(R.string.scan_failed, error));
+                    showToast(getString(R.string.scan_failed, error));
                 });
             }
         });
@@ -1136,7 +1088,7 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
             targetHostEdit.setText(device.ipAddress);
             lanScanner.cleanup();
             scanDialog.dismiss();
-            showToast("已选择IP: " + device.ipAddress);
+            showToast(getString(R.string.selected_ip, device.ipAddress));
         });
 
         // 重新扫描按钮
@@ -1171,19 +1123,19 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
         // 检查WiFi连接状态
         WifiManager wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
         if (!wifiManager.isWifiEnabled()) {
-            showToast("请先开启WiFi");
+            showToast(getString(R.string.enable_wifi_first));
             return;
         }
 
         WifiInfo wifiInfo = wifiManager.getConnectionInfo();
         if (wifiInfo == null || wifiInfo.getNetworkId() == -1) {
-            showToast("请先连接到WiFi网络");
+            showToast(getString(R.string.connect_wifi_first));
             return;
         }
 
         String ssid = wifiInfo.getSSID();
         if (ssid == null || ssid.equals("<unknown ssid>") || ssid.isEmpty()) {
-            showToast("无法获取WiFi名称，请检查位置权限");
+            showToast(getString(R.string.cannot_get_wifi_name));
             return;
         }
         
@@ -1216,16 +1168,16 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
         TextView tvProgressMessage = dialogView.findViewById(R.id.tv_progress_message);
         TextView tvConfigResult = dialogView.findViewById(R.id.tv_config_result);
 
-        tvCurrentSsid.setText("当前WiFi: " + finalSsid);
+        tvCurrentSsid.setText(getString(R.string.current_wifi, finalSsid));
         
         // 显示MAC地址
         String currentBssid = wifiInfo.getBSSID();
         if (currentBssid != null && !currentBssid.equals("<unknown ssid>") && !currentBssid.isEmpty()) {
-            tvCurrentBssid.setText("MAC地址: " + currentBssid.toUpperCase());
-            tvCurrentBssid.setTextColor(getResources().getColor(android.R.color.holo_blue_dark));
+            tvCurrentBssid.setText(getString(R.string.mac_address_format, currentBssid.toUpperCase()));
+            tvCurrentBssid.setTextColor(ContextCompat.getColor(this, android.R.color.holo_blue_dark));
         } else {
-            tvCurrentBssid.setText("MAC地址: 无法获取");
-            tvCurrentBssid.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+            tvCurrentBssid.setText(getString(R.string.mac_address_unavailable));
+            tvCurrentBssid.setTextColor(ContextCompat.getColor(this, android.R.color.holo_red_dark));
         }
 
         AlertDialog configDialog = new AlertDialog.Builder(this)
@@ -1253,7 +1205,7 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
         Runnable showProgress = () -> {
             contentView.setVisibility(View.GONE);
             progressView.setVisibility(View.VISIBLE);
-            tvProgressMessage.setText("正在配网，请稍候...");
+            tvProgressMessage.setText(getString(R.string.smart_config_in_progress));
             tvConfigResult.setVisibility(View.GONE);
         };
 
@@ -1265,7 +1217,7 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
         btnStartConfig.setOnClickListener(v -> {
             String password = etWifiPassword.getText().toString();
             if (password.trim().isEmpty()) {
-                showToast("请输入WiFi密码");
+                showToast(getString(R.string.input_wifi_password));
                 return;
             }
             
@@ -1274,11 +1226,11 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
             try {
                 deviceCount = deviceCountStr.isEmpty() ? 1 : Integer.parseInt(deviceCountStr);
                 if (deviceCount < 1 || deviceCount > 10) {
-                    showToast("设备数量应在1-10之间");
+                    showToast(getString(R.string.device_count_range));
                     return;
                 }
             } catch (NumberFormatException e) {
-                showToast("请输入有效的设备数量");
+                showToast(getString(R.string.invalid_device_count));
                 return;
             }
             
@@ -1312,9 +1264,9 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
             // 检查WiFi连接状态
             if (wifiInfo == null || wifiInfo.getNetworkId() == -1) {
                 progressView.setVisibility(View.GONE);
-                progressMessage.setText("WiFi连接异常");
-                resultView.setText("请确保WiFi已连接并重试");
-                resultView.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+                progressMessage.setText(getString(R.string.wifi_error));
+                resultView.setText(getString(R.string.wifi_error_detail));
+                resultView.setTextColor(ContextCompat.getColor(this, android.R.color.holo_red_dark));
                 resultView.setVisibility(View.VISIBLE);
                 return;
             }
@@ -1351,7 +1303,7 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
                 public void onEsptouchResultAdded(IEsptouchResult result) {
                     runOnUiThread(() -> {
                         if (result.isCancelled()) {
-                            progressMessage.setText("配网已取消");
+                            progressMessage.setText(getString(R.string.smart_config_cancelled));
                             resultView.setText("");
                             resultView.setVisibility(View.GONE);
                             isSmartConfigRunning = false;
@@ -1366,9 +1318,9 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
                         } else if (result.isSuc()) {
                             String deviceIp = result.getInetAddress().getHostAddress();
                             String bssid = result.getBssid();
-                            progressMessage.setText("配网成功！");
-                            resultView.setText(String.format("设备IP: %s\nMAC: %s", deviceIp, bssid));
-                            resultView.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+                            progressMessage.setText(getString(R.string.smart_config_success));
+                            resultView.setText(getString(R.string.device_ip_mac_format, deviceIp, bssid));
+                            resultView.setTextColor(ContextCompat.getColor(MainActivity.this, android.R.color.holo_green_dark));
                             resultView.setVisibility(View.VISIBLE);
                             
                             isSmartConfigRunning = false;
@@ -1391,7 +1343,7 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
 
             isSmartConfigRunning = true;
             updateSmartConfigButtonText();
-            progressMessage.setText("正在广播配网信息...");
+            progressMessage.setText(getString(R.string.broadcasting_config));
 
             // 在后台线程执行配网
             new Thread(() -> {
@@ -1406,18 +1358,18 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
                         
                         if (results == null) {
                             // 端口连接失败
-                            progressMessage.setText("配网失败");
-                            resultView.setText("无法连接到ESP32设备，请检查：\n1. 设备是否处于SmartConfig配网模式\n2. WiFi密码是否正确\n3. 设备是否在WiFi信号范围内\n4. 手机是否连接到2.4GHz WiFi");
-                            resultView.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+                            progressMessage.setText(getString(R.string.smart_config_failed));
+                            resultView.setText(getString(R.string.smart_config_failed_detail));
+                            resultView.setTextColor(ContextCompat.getColor(this, android.R.color.holo_red_dark));
                             resultView.setVisibility(View.VISIBLE);
                             return;
                         }
                         
                         if (results.isEmpty()) {
                             // 没有收到任何响应
-                            progressMessage.setText("配网超时");
-                            resultView.setText("配网超时，未收到设备响应：\n1. 确认设备已进入SmartConfig模式\n2. 检查WiFi密码是否正确\n3. 确保设备支持当前WiFi频段");
-                            resultView.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+                            progressMessage.setText(getString(R.string.smart_config_timeout));
+                            resultView.setText(getString(R.string.smart_config_timeout_detail));
+                            resultView.setTextColor(ContextCompat.getColor(this, android.R.color.holo_red_dark));
                             resultView.setVisibility(View.VISIBLE);
                             return;
                         }
@@ -1430,9 +1382,9 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
 
                         if (!firstResult.isSuc()) {
                             // 配网过程失败
-                            progressMessage.setText("配网失败");
-                            resultView.setText("配网过程失败，请重试：\n1. 确认WiFi密码正确\n2. 确保设备处于SmartConfig配网模式\n3. 尝试重启ESP32设备后重新配网");
-                            resultView.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+                            progressMessage.setText(getString(R.string.smart_config_failed));
+                            resultView.setText(getString(R.string.smart_config_retry_detail));
+                            resultView.setTextColor(ContextCompat.getColor(this, android.R.color.holo_red_dark));
                             resultView.setVisibility(View.VISIBLE);
                             return;
                         }
@@ -1443,17 +1395,17 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
                         for (IEsptouchResult result : results) {
                             if (result.isSuc()) {
                                 successCount++;
-                                successDevices.append(String.format("设备%d: %s\nMAC: %s\n\n", 
-                                    successCount, 
+                                successDevices.append(getString(R.string.device_result_format,
+                                    successCount,
                                     result.getInetAddress().getHostAddress(),
                                     result.getBssid()));
                             }
                         }
                         
                         if (successCount > 0) {
-                            progressMessage.setText(String.format("配网成功！(%d个设备)", successCount));
+                            progressMessage.setText(getString(R.string.smart_config_success_count, successCount));
                             resultView.setText(successDevices.toString().trim());
-                            resultView.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+                            resultView.setTextColor(ContextCompat.getColor(this, android.R.color.holo_green_dark));
                             resultView.setVisibility(View.VISIBLE);
                             
                             // 延迟关闭对话框并显示成功对话框
@@ -1471,10 +1423,9 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
                 } catch (Exception e) {
                     Log.e(TAG, "SmartConfig执行异常", e);
                     runOnUiThread(() -> {
-                        progressMessage.setText("配网异常");
-                        resultView.setText("配网过程出现异常: " + e.getMessage() + 
-                                          "\n\n请尝试：\n1. 重新启动应用\n2. 检查网络权限\n3. 确认WiFi连接正常");
-                        resultView.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+                        progressMessage.setText(getString(R.string.smart_config_error));
+                        resultView.setText(getString(R.string.smart_config_error_detail, e.getMessage()));
+                        resultView.setTextColor(ContextCompat.getColor(this, android.R.color.holo_red_dark));
                         resultView.setVisibility(View.VISIBLE);
                         isSmartConfigRunning = false;
                         updateSmartConfigButtonText();
@@ -1484,9 +1435,9 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
 
         } catch (Exception e) {
             Log.e(TAG, "启动SmartConfig失败", e);
-            progressMessage.setText("启动失败");
-            resultView.setText("启动配网失败: " + e.getMessage());
-            resultView.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+            progressMessage.setText(getString(R.string.smart_config_start_failed));
+            resultView.setText(getString(R.string.smart_config_start_failed_detail, e.getMessage()));
+            resultView.setTextColor(ContextCompat.getColor(this, android.R.color.holo_red_dark));
             resultView.setVisibility(View.VISIBLE);
             isSmartConfigRunning = false;
             updateSmartConfigButtonText();
@@ -1495,10 +1446,10 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
 
     private void showStopSmartConfigDialog() {
         new AlertDialog.Builder(this)
-                .setTitle("停止配网")
-                .setMessage("SmartConfig配网正在进行中，是否要停止？")
-                .setPositiveButton("停止", (dialog, which) -> stopSmartConfig())
-                .setNegativeButton("取消", null)
+                .setTitle(getString(R.string.stop_smart_config))
+                .setMessage(getString(R.string.stop_smart_config_confirm))
+                .setPositiveButton(getString(R.string.stop), (dialog, which) -> stopSmartConfig())
+                .setNegativeButton(getString(R.string.cancel), null)
                 .show();
     }
 
@@ -1508,27 +1459,26 @@ public class MainActivity extends AppCompatActivity implements ForwardAdapter.On
             esptouchTask = null;
             isSmartConfigRunning = false;
             updateSmartConfigButtonText();
-            showToast("SmartConfig已停止");
+            showToast(getString(R.string.smart_config_stopped));
         }
     }
 
     private void updateSmartConfigButtonText() {
         if (btnSmartConfig != null) {
-            btnSmartConfig.setText(isSmartConfigRunning ? "停止" : "配网");
+            btnSmartConfig.setText(isSmartConfigRunning ? getString(R.string.btn_smart_config_stop) : getString(R.string.btn_smart_config_start));
         }
     }
 
     private void showSmartConfigSuccessDialog(String deviceIp) {
         new AlertDialog.Builder(this)
-                .setTitle("配网成功")
-                .setMessage("ESP32设备已成功连接到WiFi网络！\n\n设备IP地址: " + deviceIp + 
-                           "\n\n是否要为此设备创建端口转发配置？")
-                .setPositiveButton("创建配置", (dialog, which) -> {
+                .setTitle(getString(R.string.smart_config_success_title))
+                .setMessage(getString(R.string.smart_config_success_message, deviceIp))
+                .setPositiveButton(getString(R.string.create_config), (dialog, which) -> {
                     // 预填充设备IP创建配置
-                    ForwardConfig newConfig = new ForwardConfig("ESP32设备", PortForwarder.PROTOCOL_TCP, 8080, deviceIp, 80);
+                    ForwardConfig newConfig = new ForwardConfig(getString(R.string.esp32_device), PortForwarder.PROTOCOL_TCP, 8080, deviceIp, 80);
                     showConfigEditDialog(newConfig);
                 })
-                .setNegativeButton("稍后再说", null)
+                .setNegativeButton(getString(R.string.later), null)
                 .show();
     }
 

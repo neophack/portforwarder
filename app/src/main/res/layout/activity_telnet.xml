@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#1C1C1E"
+    android:fitsSystemWindows="true">
+
+    <!-- Header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="#1C1C1E"
+        android:padding="12dp"
+        android:elevation="1dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Telnet"
+            android:textSize="17sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF" />
+
+        <TextView
+            android:id="@+id/tv_connection_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="连接中..."
+            android:textSize="12sp"
+            android:textColor="#8E8E93" />
+    </LinearLayout>
+
+    <!-- Terminal output -->
+    <ScrollView
+        android:id="@+id/sv_telnet_output"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="#1C1C1E"
+        android:padding="8dp">
+
+        <TextView
+            android:id="@+id/tv_telnet_output"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:textSize="14sp"
+            android:textColor="#00FF00"
+            android:lineSpacingExtra="2dp"
+            android:textIsSelectable="true" />
+    </ScrollView>
+
+    <!-- Input area -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="#2C2C2E"
+        android:padding="8dp"
+        android:elevation="2dp">
+
+        <Button
+            android:id="@+id/btn_telnet_disconnect"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:text="断开"
+            android:textSize="12sp"
+            android:textColor="@android:color/white"
+            android:textAllCaps="false"
+            android:background="#FF453A"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:layout_marginEnd="8dp" />
+
+        <EditText
+            android:id="@+id/et_telnet_input"
+            android:layout_width="0dp"
+            android:layout_height="32dp"
+            android:layout_weight="1"
+            android:background="#1C1C1E"
+            android:hint="输入命令..."
+            android:textSize="15sp"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#636366"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:imeOptions="actionSend"
+            android:inputType="text"
+            android:singleLine="true"
+            android:fontFamily="monospace" />
+
+        <Button
+            android:id="@+id/btn_telnet_send"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:text="发送"
+            android:textSize="12sp"
+            android:textColor="@android:color/white"
+            android:textAllCaps="false"
+            android:background="#0A84FF"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:layout_marginStart="8dp"
+            android:enabled="false" />
+    </LinearLayout>
+</LinearLayout>

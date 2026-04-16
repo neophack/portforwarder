@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#000000"
+    android:fitsSystemWindows="true">
+
+    <!-- Header bar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#1C1C1E"
+        android:elevation="1dp">
+
+        <!-- Navigation row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="4dp">
+
+            <Button
+                android:id="@+id/btn_back"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:text="关闭"
+                android:textSize="14sp"
+                android:textColor="#0A84FF"
+                android:textAllCaps="false"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:minWidth="0dp"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp" />
+
+            <TextView
+                android:id="@+id/tv_url"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textSize="12sp"
+                android:textColor="#8E8E93"
+                android:gravity="center"
+                android:singleLine="true"
+                android:ellipsize="middle" />
+
+            <Button
+                android:id="@+id/btn_web_refresh"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:text="刷新"
+                android:textSize="14sp"
+                android:textColor="#0A84FF"
+                android:textAllCaps="false"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:minWidth="0dp"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp" />
+
+            <Button
+                android:id="@+id/btn_external"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:text="浏览器"
+                android:textSize="14sp"
+                android:textColor="#0A84FF"
+                android:textAllCaps="false"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:minWidth="0dp"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp" />
+        </LinearLayout>
+
+        <!-- Progress bar -->
+        <ProgressBar
+            android:id="@+id/progress_bar"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="3dp"
+            android:progressTint="#0A84FF"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <!-- WebView -->
+    <WebView
+        android:id="@+id/web_view"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+</LinearLayout>

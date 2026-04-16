@@ -32,6 +32,7 @@ public class LanScanner {
     private Context context;
     private ExecutorService executorService;
     private ExecutorService timeoutExecutor; // 专门用于超时控制的线程池
+    private java.util.concurrent.Future<?> timeoutFuture;
     private ScanCallback callback;
     private volatile boolean isScanning = false;
     private volatile boolean forceStop = false;
@@ -47,7 +48,7 @@ public class LanScanner {
     public LanScanner(Context context) {
         this.context = context;
         this.executorService = Executors.newFixedThreadPool(MAX_THREADS);
-        this.timeoutExecutor = Executors.newCachedThreadPool(); // 用于超时监控
+        this.timeoutExecutor = Executors.newSingleThreadExecutor(); // 用于超时监控
     }
     
     public void setScanCallback(ScanCallback callback) {
@@ -65,6 +66,12 @@ public class LanScanner {
         
         isScanning = true;
         forceStop = false;
+
+        // Lazily recreate executorService if it was shut down
+        if (executorService == null || executorService.isTerminated()) {
+            executorService = Executors.newFixedThreadPool(MAX_THREADS);
+        }
+
         if (callback != null) {
             callback.onScanStarted();
         }
@@ -76,7 +83,7 @@ public class LanScanner {
             } catch (Exception e) {
                 Log.e(TAG, "Scan error", e);
                 if (callback != null) {
-                    callback.onScanError("扫描失败: " + e.getMessage());
+                    callback.onScanError(context.getString(R.string.scan_failed, e.getMessage()));
                 }
             } finally {
                 isScanning = false;
@@ -85,22 +92,21 @@ public class LanScanner {
         }).start();
         
         // 启动总超时监控线程 - 确保绝对不会卡住
-        timeoutExecutor.submit(() -> {
+        timeoutFuture = timeoutExecutor.submit(() -> {
             try {
                 Thread.sleep(TOTAL_TIMEOUT_SECONDS * 1000);
                 if (isScanning) {
                     Log.w(TAG, "Total scan timeout reached, forcing stop");
                     forceStop = true;
                     isScanning = false;
-                    
+
                     // 强制关闭所有线程池
                     if (executorService != null) {
                         executorService.shutdownNow();
-                        executorService = Executors.newFixedThreadPool(MAX_THREADS);
                     }
-                    
+
                     if (callback != null) {
-                        callback.onScanError("扫描超时，已发现的设备仍然有效");
+                        callback.onScanError(context.getString(R.string.scan_timeout));
                     }
                 }
             } catch (InterruptedException e) {
@@ -115,10 +121,14 @@ public class LanScanner {
     public void stopScan() {
         isScanning = false;
         forceStop = true;
-        
+
+        if (timeoutFuture != null) {
+            timeoutFuture.cancel(true);
+            timeoutFuture = null;
+        }
+
         if (executorService != null && !executorService.isShutdown()) {
             executorService.shutdownNow();
-            executorService = Executors.newFixedThreadPool(MAX_THREADS);
         }
     }
     
@@ -129,7 +139,7 @@ public class LanScanner {
         List<String> subnets = getAllLocalSubnets();
         if (subnets.isEmpty()) {
             if (callback != null) {
-                callback.onScanError("无法获取本地网络信息");
+                callback.onScanError(context.getString(R.string.scan_error_no_network));
             }
             return;
         }
@@ -311,7 +321,7 @@ public class LanScanner {
                                 (ipAddress >> 24 & 0xff));
                         String wifiSubnet = getSubnetFromIp(wifiIp);
                         if (deviceSubnet.equals(wifiSubnet)) {
-                            device.hostname = device.hostname + " [WiFi网络]";
+                            device.hostname = device.hostname + " [" + context.getString(R.string.network_wifi) + "]";
                             return device;
                         }
                     }
@@ -322,13 +332,13 @@ public class LanScanner {
             
             // 尝试识别其他网络类型
             if (deviceSubnet.startsWith("192.168.")) {
-                device.hostname = device.hostname + " [家庭网络]";
+                device.hostname = device.hostname + " [" + context.getString(R.string.network_home) + "]";
             } else if (deviceSubnet.startsWith("10.")) {
-                device.hostname = device.hostname + " [企业网络]";
+                device.hostname = device.hostname + " [" + context.getString(R.string.network_enterprise) + "]";
             } else if (deviceSubnet.startsWith("172.")) {
-                device.hostname = device.hostname + " [专用网络]";
+                device.hostname = device.hostname + " [" + context.getString(R.string.network_private) + "]";
             } else {
-                device.hostname = device.hostname + " [其他网络]";
+                device.hostname = device.hostname + " [" + context.getString(R.string.network_other) + "]";
             }
         }
         
@@ -433,12 +443,12 @@ public class LanScanner {
             }
             
             // MAC地址设为未知，因为无法安全获取
-            device.macAddress = "未知";
+            device.macAddress = context.getString(R.string.unknown);
             
         } catch (Exception e) {
             // 静默处理错误
-            device.hostname = "未知";
-            device.macAddress = "未知";
+            device.hostname = context.getString(R.string.unknown);
+            device.macAddress = context.getString(R.string.unknown);
         }
     }
     
@@ -499,6 +509,10 @@ public class LanScanner {
      * 清理资源
      */
     public void cleanup() {
+        if (timeoutFuture != null) {
+            timeoutFuture.cancel(true);
+            timeoutFuture = null;
+        }
         stopScan();
         if (executorService != null && !executorService.isShutdown()) {
             executorService.shutdown();

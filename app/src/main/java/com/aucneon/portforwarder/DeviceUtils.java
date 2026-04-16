@@ -2,8 +2,11 @@ package com.aucneon.portforwarder;
 
 import android.app.Activity;
 import android.content.pm.ActivityInfo;
+import android.graphics.Rect;
+import android.os.Build;
 import android.util.DisplayMetrics;
 import android.util.Log;
+import android.view.WindowMetrics;
 
 /**
  * 设备工具类
@@ -19,40 +22,56 @@ public class DeviceUtils {
      */
     public static boolean isTabletDevice(Activity activity) {
         // 方法1：通过屏幕尺寸判断
-        DisplayMetrics metrics = new DisplayMetrics();
-        activity.getWindowManager().getDefaultDisplay().getMetrics(metrics);
-        
-        float widthInches = metrics.widthPixels / metrics.xdpi;
-        float heightInches = metrics.heightPixels / metrics.ydpi;
+        int screenWidth;
+        int screenHeight;
+        float density;
+        float xdpi;
+        float ydpi;
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            WindowMetrics windowMetrics = activity.getWindowManager().getCurrentWindowMetrics();
+            Rect bounds = windowMetrics.getBounds();
+            screenWidth = bounds.width();
+            screenHeight = bounds.height();
+            density = activity.getResources().getDisplayMetrics().density;
+            xdpi = activity.getResources().getDisplayMetrics().xdpi;
+            ydpi = activity.getResources().getDisplayMetrics().ydpi;
+        } else {
+            DisplayMetrics metrics = new DisplayMetrics();
+            activity.getWindowManager().getDefaultDisplay().getMetrics(metrics);
+            screenWidth = metrics.widthPixels;
+            screenHeight = metrics.heightPixels;
+            density = metrics.density;
+            xdpi = metrics.xdpi;
+            ydpi = metrics.ydpi;
+        }
+
+        float widthInches = screenWidth / xdpi;
+        float heightInches = screenHeight / ydpi;
         double diagonalInches = Math.sqrt(Math.pow(widthInches, 2) + Math.pow(heightInches, 2));
-        
+
         // 对角线大于7英寸认为是平板
         if (diagonalInches >= 7.0) {
             Log.d(TAG, "通过屏幕尺寸检测到平板设备，对角线: " + diagonalInches + " 英寸");
             return true;
         }
-        
+
         // 方法2：通过屏幕密度和尺寸综合判断
-        int screenWidth = metrics.widthPixels;
-        int screenHeight = metrics.heightPixels;
-        float density = metrics.density;
-        
         // 计算dp尺寸
         int widthDp = (int) (screenWidth / density);
         int heightDp = (int) (screenHeight / density);
-        
+
         // 如果最小边大于600dp，认为是平板
         int smallestWidth = Math.min(widthDp, heightDp);
         if (smallestWidth >= 600) {
             Log.d(TAG, "通过dp尺寸检测到平板设备，最小宽度: " + smallestWidth + " dp");
             return true;
         }
-        
+
         // 方法3：通过配置判断
-        boolean isTablet = activity.getResources().getConfiguration().screenLayout 
-                == android.content.res.Configuration.SCREENLAYOUT_SIZE_LARGE
-                || activity.getResources().getConfiguration().screenLayout 
-                == android.content.res.Configuration.SCREENLAYOUT_SIZE_XLARGE;
+        int screenSize = activity.getResources().getConfiguration().screenLayout
+                & android.content.res.Configuration.SCREENLAYOUT_SIZE_MASK;
+        boolean isTablet = screenSize >= android.content.res.Configuration.SCREENLAYOUT_SIZE_LARGE;
         
         if (isTablet) {
             Log.d(TAG, "通过配置检测到平板设备");
@@ -87,19 +106,40 @@ public class DeviceUtils {
      * @return 屏幕信息字符串
      */
     public static String getScreenInfo(Activity activity) {
-        DisplayMetrics metrics = new DisplayMetrics();
-        activity.getWindowManager().getDefaultDisplay().getMetrics(metrics);
-        
-        float widthInches = metrics.widthPixels / metrics.xdpi;
-        float heightInches = metrics.heightPixels / metrics.ydpi;
+        int screenWidth;
+        int screenHeight;
+        float density;
+        float xdpi;
+        float ydpi;
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            WindowMetrics windowMetrics = activity.getWindowManager().getCurrentWindowMetrics();
+            Rect bounds = windowMetrics.getBounds();
+            screenWidth = bounds.width();
+            screenHeight = bounds.height();
+            density = activity.getResources().getDisplayMetrics().density;
+            xdpi = activity.getResources().getDisplayMetrics().xdpi;
+            ydpi = activity.getResources().getDisplayMetrics().ydpi;
+        } else {
+            DisplayMetrics metrics = new DisplayMetrics();
+            activity.getWindowManager().getDefaultDisplay().getMetrics(metrics);
+            screenWidth = metrics.widthPixels;
+            screenHeight = metrics.heightPixels;
+            density = metrics.density;
+            xdpi = metrics.xdpi;
+            ydpi = metrics.ydpi;
+        }
+
+        float widthInches = screenWidth / xdpi;
+        float heightInches = screenHeight / ydpi;
         double diagonalInches = Math.sqrt(Math.pow(widthInches, 2) + Math.pow(heightInches, 2));
-        
-        int widthDp = (int) (metrics.widthPixels / metrics.density);
-        int heightDp = (int) (metrics.heightPixels / metrics.density);
+
+        int widthDp = (int) (screenWidth / density);
+        int heightDp = (int) (screenHeight / density);
         int smallestWidth = Math.min(widthDp, heightDp);
-        
+
         return String.format("屏幕信息 - 分辨率: %dx%d, 密度: %.2f, 对角线: %.1f英寸, 最小宽度: %ddp, 设备类型: %s",
-                metrics.widthPixels, metrics.heightPixels, metrics.density, 
+                screenWidth, screenHeight, density,
                 diagonalInches, smallestWidth, isTabletDevice(activity) ? "平板" : "手机");
     }
 } 
